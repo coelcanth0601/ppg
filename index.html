@@ -27,14 +27,15 @@
   small { display:block; color:var(--mut); margin:16px 0; text-align:center; }
   .chip { margin-top:10px; border:0; background:var(--card); color:var(--fg); padding:8px 14px; border-radius:999px; font:inherit; font-size:14px; }
   .card { background:var(--card); border-radius:14px; padding:12px; margin-top:12px; }
-  .card .row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:14px; }
+  .card .row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:14px; gap:8px; }
   #rgb { width:100%; height:110px; display:block; }
   #sw i { display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:6px; border:1px solid #888; }
   .legend { font-size:13px; font-weight:700; display:flex; gap:14px; margin-top:6px; }
   .card p { color:var(--mut); font-size:13px; margin:8px 0 0; }
-  body.lit { --bg:#fff; --card:#eef0f3; --fg:#111; --mut:#555; }
-  body.lit .view { box-shadow:0 0 0 22px #fff; margin:34px 0 0; }
-  body.lit .seg button.on { background:#fff; color:#111; }
+  #ref { width:100%; padding:10px; border-radius:10px; border:1px solid #2b333c; background:#0f1317; color:var(--fg); font:inherit; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; }
+  #white { position:fixed; inset:0; background:#fff; z-index:1000; display:none; align-items:center; justify-content:center; touch-action:manipulation; }
+  #whiteMsg { color:#9a9a9a; font:14px system-ui; padding:24px; text-align:center; }
   footer { text-align:center; color:var(--mut); font-size:13px; padding:4px 0 24px; letter-spacing:.3px; }
 </style>
 </head>
@@ -49,13 +50,14 @@
   <button id="sEar">Under ear</button>
   <button id="sWrist">Wrist</button>
 </div>
-<button id="light" class="chip">Screen light: on</button>
+<button id="light" class="chip"></button>
 <div class="view" id="view">
   <video id="video" playsinline muted></video>
   <canvas id="overlay"></canvas>
   <div class="oval" id="oval"></div>
 </div>
-<div class="readout"><div id="bpm">--</div><div id="status">Tap Start. Everything runs on your device; no video is uploaded.</div></div>
+<button id="go">Start</button>
+<div class="readout"><div id="bpm">--</div><div id="status"></div></div>
 <canvas id="wave" width="600" height="140"></canvas>
 <div class="card">
   <div class="row"><b>What the camera sees</b><span id="sw"></span></div>
@@ -63,15 +65,53 @@
   <div class="legend"><span style="color:#ff5a5a">R</span><span style="color:#2fbf71">G</span><span style="color:#5a9bff">B</span></div>
   <p>Each line is how much that colour in the measured patch changes from moment to moment (slow drift removed). A heartbeat shows up as a steady, repeating wobble, strongest in green.</p>
 </div>
-<button id="go">Start</button>
+<div class="card">
+  <div class="row"><b>Accuracy log</b><span id="logInfo">0 readings</span></div>
+  <input id="ref" type="number" inputmode="numeric" min="30" max="220" placeholder="Reference BPM (oximeter / watch), enter before measuring">
+  <div class="btns" style="margin-top:8px">
+    <button id="csv" class="chip">Readings CSV</button>
+    <button id="rawcsv" class="chip">Raw RGB CSV</button>
+    <button id="clear" class="chip">Clear</button>
+  </div>
+  <p>Each reading is saved with the reference you typed. The page shows the average error against it.</p>
+</div>
 <small>Not a medical device. Keep still and well lit. Contact mode: the rear camera and flash touch your skin. Ear and wrist signals are weaker than the finger, so they may need a few tries.</small>
 <footer>Made by Rachit</footer>
+<div id="white"><div id="whiteMsg"></div></div>
 
 <script>
 /* ---------- Signal engine ---------- */
-const MIN_Q = 0.35;   // below this signal quality, no heart rate is shown
+const MIN_Q = 0.35, SESSION_SEC = 30, WARM_SEC = 3;   // MIN_Q: below this signal quality no heart rate is shown
+
+// Zero-phase band-pass (two Butterworth-style biquads, run forward and backward)
+function biquad(type, f0, fs) {
+  const w = 2 * Math.PI * f0 / fs, c = Math.cos(w), al = Math.sin(w) / (2 * Math.SQRT1_2);
+  const b0 = type === 'lp' ? (1 - c) / 2 : (1 + c) / 2, b1 = type === 'lp' ? 1 - c : -(1 + c), a0 = 1 + al;
+  return [b0 / a0, b1 / a0, b0 / a0, -2 * c / a0, (1 - al) / a0];
+}
+function runBiquad(k, x) {
+  const [b0, b1, b2, a1, a2] = k, y = new Float64Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < x.length; i++) {
+    const v = b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    y[i] = v; x2 = x1; x1 = x[i]; y2 = y1; y1 = v;
+  }
+  return y;
+}
+function filtfilt(k, x) {
+  const n = x.length, P = Math.min(n - 1, 90), z = new Float64Array(n + 2 * P);
+  for (let i = 0; i < P; i++) { z[i] = 2 * x[0] - x[P - i]; z[n + P + i] = 2 * x[n - 1] - x[n - 2 - i]; }
+  z.set(x, P);
+  let y = runBiquad(k, z); y.reverse(); y = runBiquad(k, y); y.reverse();
+  return y.slice(P, P + n);
+}
+function bandpass(x, fs, lo = 0.6, hi = 3.3) {
+  let m = 0; for (const v of x) m += v; m /= x.length;
+  const y = filtfilt(biquad('hp', lo, fs), Float64Array.from(x, v => v - m));
+  return filtfilt(biquad('lp', hi, fs), y);
+}
+
 class Engine {
-  constructor(win = 12, min = 6) { this.win = win; this.min = min; this.reset(); }
+  constructor(win = 15, min = 8) { this.win = win; this.min = min; this.reset(); }
   reset() { this.t = []; this.r = []; this.g = []; this.b = []; this.sm = 0; }
   add(ts, r, g, b) {
     this.t.push(ts); this.r.push(r); this.g.push(g); this.b.push(b);
@@ -87,15 +127,6 @@ class Engine {
       while (j < T.length - 2 && T[j + 1] < tt) j++;
       const f = Math.min(1, Math.max(0, (tt - T[j]) / (T[j + 1] - T[j])));
       out[i] = v[j] + f * (v[j + 1] - v[j]);
-    }
-    return out;
-  }
-  highpass(x, fs) {
-    const k = Math.floor(fs / 2), n = x.length, out = new Float64Array(n);
-    for (let i = 0; i < n; i++) {
-      const a = Math.max(0, i - k), e = Math.min(n - 1, i + k); let s = 0;
-      for (let j = a; j <= e; j++) s += x[j];
-      out[i] = x[i] - s / (e - a + 1);
     }
     return out;
   }
@@ -119,35 +150,48 @@ class Engine {
     return h;
   }
   spectrum(pulse, fs) {
-    const n = pulse.length;
+    const n = pulse.length, step = 0.01, f0 = 0.7, K = Math.round((3.0 - f0) / step) + 1;
     const w = pulse.map((v, i) => v * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1))));
-    const freqs = []; for (let f = 0.7; f <= 3.0001; f += 0.01) freqs.push(f);
+    const freqs = Array.from({ length: K }, (_, k) => f0 + k * step);
     const power = freqs.map(f => {
       let re = 0, im = 0; const om = 2 * Math.PI * f / fs;
       for (let i = 0; i < n; i++) { re += w[i] * Math.cos(om * i); im += w[i] * Math.sin(om * i); }
       return re * re + im * im;
     });
     let pk = 0; power.forEach((p, k) => { if (p > power[pk]) pk = k; });
-    let sig = 0, tot = 0;
-    power.forEach((p, k) => { tot += p; if (Math.abs(freqs[k] - freqs[pk]) <= 0.1) sig += p; });
-    return { bpm: freqs[pk] * 60, quality: tot > 0 ? sig / tot : 0 };
+    // If a peak at half the frequency is nearly as strong, the main peak is probably a harmonic
+    if (freqs[pk] / 2 >= 0.9) {
+      const kh = Math.round((freqs[pk] / 2 - f0) / step); let best = kh;
+      for (let k = Math.max(0, kh - 5); k <= Math.min(K - 1, kh + 5); k++) if (power[k] > power[best]) best = k;
+      if (power[best] > 0.6 * power[pk]) pk = best;
+    }
+    let f = freqs[pk];
+    if (pk > 0 && pk < K - 1) {   // parabolic refinement of the peak
+      const a = power[pk - 1], b = power[pk], c = power[pk + 1], d = a - 2 * b + c;
+      if (d < 0) f += 0.5 * (a - c) / d * step;
+    }
+    const band = (c, hw) => { let s = 0; for (let k = 0; k < K; k++) if (Math.abs(freqs[k] - c) <= hw) s += power[k]; return s; };
+    let tot = 0; for (const p of power) tot += p;
+    const sig = band(f, 0.1);   // share of in-band power at the pulse peak (pure noise gives ~25%, so 35% is a real gate)
+    return { bpm: f * 60, quality: tot > 0 ? Math.min(1, sig / tot) : 0 };
   }
   /** site: false = face (POS), 'finger' = red channel, 'ear' / 'wrist' = cleaner of red or green */
   estimate(site) {
     if (this.t.length < 2 || this.t.at(-1) - this.t[0] < this.min) return null;
     const fs = 30, n = Math.floor((this.t.at(-1) - this.t[0]) * fs);
+    const R = this.resample(this.r, n, fs), G = this.resample(this.g, n, fs), B = this.resample(this.b, n, fs);
     let pulse, sp;
-    if (!site) {
-      pulse = this.pos(this.resample(this.r, n, fs), this.resample(this.g, n, fs), this.resample(this.b, n, fs), fs);
-      sp = this.spectrum(pulse, fs);
-    } else if (site === 'finger') {
-      pulse = this.highpass(this.resample(this.r, n, fs), fs); sp = this.spectrum(pulse, fs);
-    } else {   // weaker pulse sites: try red and green, keep the cleaner one
-      const c = [this.r, this.g].map(ch => { const p = this.highpass(this.resample(ch, n, fs), fs); return { p, s: this.spectrum(p, fs) }; });
+    if (!site) { pulse = bandpass(this.pos(R, G, B, fs), fs); sp = this.spectrum(pulse, fs); }
+    else if (site === 'finger') { pulse = bandpass(R, fs); sp = this.spectrum(pulse, fs); }
+    else {
+      const c = [R, G].map(ch => { const p = bandpass(ch, fs); return { p, s: this.spectrum(p, fs) }; });
       const best = c[0].s.quality >= c[1].s.quality ? c[0] : c[1]; pulse = best.p; sp = best.s;
     }
-    if (sp.quality >= MIN_Q) this.sm = this.sm === 0 ? sp.bpm : 0.8 * this.sm + 0.2 * sp.bpm;
-    return { bpm: this.sm > 0 ? this.sm : sp.bpm, quality: sp.quality, pulse };
+    if (sp.quality >= MIN_Q) {   // displayed value can move at most 3 BPM per second
+      if (this.sm === 0) this.sm = sp.bpm;
+      else { const d = sp.bpm - this.sm; if (Math.abs(d) < 30 || sp.quality > 0.6) this.sm += Math.max(-3, Math.min(3, d * 0.4)); }
+    }
+    return { bpm: this.sm > 0 ? this.sm : sp.bpm, raw: sp.bpm, quality: sp.quality, pulse };
   }
 }
 
@@ -164,8 +208,23 @@ const SITES = {
   wrist:  { min: 10, minR: 90,  ratio: 1.3, name: 'wrist',
             hint: 'Rest the camera and flash flat on the inside of your wrist, over where you feel the pulse. Very light pressure, arm supported.' },
 };
-let site = 'finger', lit = true, lastRgb = null, mode = 'face', stream = null, running = false, detector = null, box = null, frame = 0, lastSample = 0, lastUi = 0, loadingDet = null, lastDet = 0, detEvery = 500;
+let site = 'finger', lit = true, mode = 'face', stream = null, track = null, running = false, gen = 0;
+let detector = null, loadingDet = null, lastDet = 0, detEvery = 500, target = null, cur = null, noFaceSince = null, lostReset = false;
+let frame = 0, lastTs = 0, lastUi = 0, useCap = null, lastRgb = null, prevLum = null, flagUntil = 0, hist = [];
+let session = null, wakeLock = null, lastTap = 0;
+const rows = [], rawRows = [];
 
+/* ----- mode / light UI ----- */
+function idleStatus() {
+  if (running) return;
+  $('status').textContent = mode === 'ppg' ? SITES[site].hint
+    : lit ? `Tap Start: the screen goes full white for about ${SESSION_SEC + WARM_SEC} s (turn brightness up), no live reading, result at the end. Double-tap to cancel.`
+          : 'Fit your face in the oval, stay still. Live reading.';
+}
+function applyLit() {
+  $('light').style.display = mode === 'face' ? '' : 'none';
+  $('light').textContent = lit ? 'Screen light: ON (full white, result at the end)' : 'Screen light: off (live reading)';
+}
 function setMode(m, st) {
   mode = m; if (st) site = st;
   const ppg = m === 'ppg';
@@ -173,25 +232,58 @@ function setMode(m, st) {
   $('sites').style.display = ppg ? '' : 'none';
   for (const k in SITES) $('s' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', k === site);
   $('oval').style.display = ppg ? 'none' : ''; applyLit();
-  engine.min = ppg ? SITES[site].min : 6;
+  engine.min = ppg ? SITES[site].min : 8;
   $('bpm').textContent = '--'; engine.reset();
-  $('status').textContent = ppg ? SITES[site].hint : 'Fit your face in the oval, stay still.';
-  if (running) start();
+  if (running) { start(false); } else idleStatus();
 }
 $('mFace').onclick = () => setMode('face');
 $('mPpg').onclick = () => setMode('ppg');
 $('sFinger').onclick = () => setMode('ppg', 'finger');
 $('sEar').onclick = () => setMode('ppg', 'ear');
 $('sWrist').onclick = () => setMode('ppg', 'wrist');
-$('go').onclick = () => running ? stop() : start();
-$('light').onclick = () => { lit = !lit; applyLit(); };
-// Steady extra light helps; blinking light would inject a fake rhythm into the signal.
-function applyLit() {
-  document.body.classList.toggle('lit', lit && mode === 'face' && running);
-  $('light').style.display = mode === 'face' ? '' : 'none';
-  $('light').textContent = lit ? 'Screen light: on (turn brightness up)' : 'Screen light: off';
+$('light').onclick = () => { lit = !lit; applyLit(); idleStatus(); };
+$('go').onclick = () => {
+  if (running) { session ? cancelSession('Stopped.') : stop(); return; }
+  const light = mode === 'face' && lit;
+  if (light) { enterFS(); showWhite(); }          // must happen inside the tap
+  start(light);
+};
+
+/* ----- full-white screen session ----- */
+function enterFS() {
+  try { const el = document.documentElement, f = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (f) Promise.resolve(f.call(el)).catch(() => {}); } catch (e) {}
+}
+function exitFS() { try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} }
+function showWhite() { $('whiteMsg').textContent = ''; $('white').style.display = 'flex'; }
+function hideWhite() { $('white').style.display = 'none'; }
+$('white').onclick = () => { const n = Date.now(); if (n - lastTap < 400) cancelSession('Cancelled.'); lastTap = n; };
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && session) cancelSession('Left full screen, stopped.'); });
+
+function endSession() {
+  session = null; hideWhite(); exitFS();
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  stop();
+}
+function cancelSession(msg) { endSession(); $('bpm').textContent = '--'; $('status').textContent = msg; }
+function finishSession() {
+  const vals = session.readings.slice(-12).map(r => r.bpm).sort((a, b) => a - b);
+  const qs = session.readings.slice(-12).map(r => r.q);
+  endSession();
+  if (vals.length < 4) {
+    $('bpm').textContent = '--';
+    $('status').textContent = 'Not enough clean signal. Try again: stay still, keep your face in front of the camera, brightness up.';
+    return;
+  }
+  const med = vals.length % 2 ? vals[(vals.length - 1) / 2] : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+  const q = Math.round(100 * qs.reduce((a, b) => a + b, 0) / qs.length);
+  const lo = vals[Math.floor(vals.length * 0.2)], hi = vals[Math.ceil(vals.length * 0.8) - 1], spread = Math.round(hi - lo);
+  $('bpm').textContent = Math.round(med);
+  $('status').textContent = `Result (signal ${q}%, ${vals.length} clean readings)` + (spread > 10 ? `. Readings varied by ${spread} BPM, treat as rough.` : '.');
+  addRow({ mode: 'face-light-result', shown: Math.round(med), raw: med, smoothed: med, q: q / 100, held: 0 });
 }
 
+/* ----- face detection + box smoothing ----- */
 async function loadDetector() {
   if (detector || loadingDet) return loadingDet;
   loadingDet = (async () => {
@@ -207,93 +299,185 @@ async function loadDetector() {
   })();
   return loadingDet;
 }
+function updateBox(now, ts, W, H) {
+  // detection is heavy and on the main thread: run it ~2x/s, back off if slow
+  if (detector && now - lastDet > detEvery) {
+    lastDet = now;
+    try {
+      const t0 = performance.now();
+      const dets = detector.detectForVideo(work, t0).detections;
+      detEvery = Math.max(500, (performance.now() - t0) * 10);
+      if (!dets.length) target = null;
+      else {
+        const bb = dets.map(d => d.boundingBox).sort((a, b) => b.width * b.height - a.width * a.height)[0];
+        const nb = { x: bb.originX, y: bb.originY, w: bb.width, h: bb.height, det: true };
+        // ignore tiny detector jitter so the patch does not wobble
+        if (cur && Math.abs(nb.x - cur.x) < 0.03 * cur.w && Math.abs(nb.y - cur.y) < 0.03 * cur.w && Math.abs(nb.w - cur.w) < 0.05 * cur.w) target = { ...cur };
+        else target = nb;
+      }
+    } catch (e) { detector = null; }
+  }
+  if (!detector && !target) target = { x: W * 0.25, y: H * 0.12, w: W * 0.5, h: H * 0.76, det: false };   // fallback: the oval
+  if (target) {
+    noFaceSince = null;
+    if (!cur) cur = { ...target };
+    else { for (const k of ['x', 'y', 'w', 'h']) cur[k] += (target[k] - cur[k]) * 0.15; cur.det = target.det; }
+  } else {
+    if (noFaceSince === null) noFaceSince = ts;
+    if (ts - noFaceSince > 1.5) cur = null;     // brief detector misses are tolerated
+  }
+}
+function faceRois(b, W, H) {      // forehead + both cheeks
+  const raw = [
+    [b.x + b.w * 0.30, b.y + b.h * (b.det ? -0.12 : 0.02), b.w * 0.40, b.h * 0.16],
+    [b.x + b.w * 0.12, b.y + b.h * 0.52, b.w * 0.24, b.h * 0.14],
+    [b.x + b.w * 0.64, b.y + b.h * 0.52, b.w * 0.24, b.h * 0.14],
+  ];
+  return raw.map(r => {
+    let [x, y, w, h] = r.map(Math.floor);
+    x = Math.max(0, Math.min(x, W - 2)); y = Math.max(0, Math.min(y, H - 2));
+    return [x, y, Math.max(2, Math.min(w, W - x)), Math.max(2, Math.min(h, H - y))];
+  });
+}
 
-async function start() {
+/* ----- camera ----- */
+async function lockCamera(tr) {     // freeze auto exposure / white balance where the browser allows it
+  try {
+    const caps = tr.getCapabilities ? tr.getCapabilities() : {}, st = tr.getSettings ? tr.getSettings() : {}, adv = {};
+    if (caps.exposureMode && caps.exposureMode.includes('manual')) {
+      adv.exposureMode = 'manual'; if (st.exposureTime) adv.exposureTime = st.exposureTime; if (st.iso) adv.iso = st.iso;
+    }
+    if (caps.whiteBalanceMode && caps.whiteBalanceMode.includes('manual')) {
+      adv.whiteBalanceMode = 'manual'; if (st.colorTemperature) adv.colorTemperature = st.colorTemperature;
+    }
+    if (Object.keys(adv).length) await tr.applyConstraints({ advanced: [adv] });
+  } catch (e) { /* not supported: fine */ }
+}
+async function start(light) {
   stop(true);
-  const ppg = mode === 'ppg';
+  const g = ++gen, ppg = mode === 'ppg';
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: ppg ? 'environment' : 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
-  } catch (e) { $('status').textContent = 'Camera unavailable: ' + e.message; return; }
+  } catch (e) {
+    session = null; hideWhite(); exitFS(); $('status').textContent = 'Camera unavailable: ' + e.message; return;
+  }
   video.srcObject = stream; await video.play();
   video.classList.toggle('mirror', !ppg); overlay.classList.toggle('mirror', !ppg);
   const vw = video.videoWidth, vh = video.videoHeight;
   $('view').style.aspectRatio = `${vw} / ${vh}`;
   work.width = 320; work.height = Math.round(320 * vh / vw); overlay.width = work.width; overlay.height = work.height;
-  const tr = stream.getVideoTracks()[0], caps = tr.getCapabilities ? tr.getCapabilities() : {};
-  if (caps.torch) tr.applyConstraints({ advanced: [{ torch: true }] }).catch(() => {});   // flash on, steady
+  track = stream.getVideoTracks()[0];
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  if (caps.torch) track.applyConstraints({ advanced: [{ torch: true }] }).catch(() => {});   // flash on, steady
   else if (ppg) $('status').textContent = 'No flash control on this browser; put the camera in bright light against your skin.';
+  setTimeout(() => { if (gen === g && track) lockCamera(track); }, (light ? WARM_SEC : 2.5) * 1000);
   if (!ppg) loadDetector();
-  engine.reset(); box = null; lastDet = 0; running = true; $('go').textContent = 'Stop'; applyLit();
-  requestAnimationFrame(loop);
+  engine.reset(); target = cur = null; noFaceSince = null; lostReset = false; hist = []; prevLum = null; flagUntil = 0;
+  lastDet = 0; lastTs = 0; lastUi = 0; useCap = null; frame = 0;
+  session = light ? { warm: true, tStart: null, t0: null, readings: [] } : null;
+  if (light && navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { wakeLock = l; }).catch(() => {});
+  running = true; $('go').textContent = 'Stop';
+  if (!light) $('status').textContent = ppg ? SITES[site].hint : 'Fit your face in the oval, stay still.';
+  schedule(g);
 }
 function stop(keepRunning) {
   if (stream) stream.getTracks().forEach(t => t.stop());
-  stream = null; if (!keepRunning) { running = false; $('go').textContent = 'Start'; octx.clearRect(0, 0, overlay.width, overlay.height); applyLit(); }
+  stream = null; track = null;
+  if (!keepRunning) { running = false; gen++; $('go').textContent = 'Start'; octx.clearRect(0, 0, overlay.width, overlay.height); }
+}
+// One sample per real camera frame, stamped with the frame's own capture time
+function schedule(g) {
+  if (!running || g !== gen) return;
+  if (video.requestVideoFrameCallback) video.requestVideoFrameCallback((now, meta) => { schedule(g); if (g === gen) onFrame(now, meta); });
+  else requestAnimationFrame(now => { schedule(g); if (g === gen) onFrame(now, {}); });
 }
 
-function meanRgb(x, y, w, h) {
-  const d = wctx.getImageData(x, y, w, h).data; let r = 0, g = 0, b = 0; const n = d.length / 4;
-  for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
-  return [r / n, g / n, b / n];
+/* ----- sampling ----- */
+function meanRgb(x, y, w, h, skin) {
+  const d = wctx.getImageData(x, y, w, h).data, n = d.length / 4;
+  let lim = 0;
+  if (skin) {      // drop clearly darker pixels (hair, eyebrows) before averaging
+    let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    lim = 0.65 * s / n;
+  }
+  let r = 0, g = 0, b = 0, c = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (skin && 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < lim) continue;
+    r += d[i]; g += d[i + 1]; b += d[i + 2]; c++;
+  }
+  return [r / c, g / c, b / c];
 }
 
-function loop(now) {
+function onFrame(now, meta) {
   if (!running) return;
-  requestAnimationFrame(loop);
-  if (now - lastSample < 1000 / 30 || video.readyState < 2) return;
-  lastSample = now; frame++;
-  const W = work.width, H = work.height, ts = now / 1000, ppg = mode === 'ppg';
-  wctx.drawImage(video, 0, 0, W, H);
-  octx.clearRect(0, 0, W, H);
-  let roi;
+  if (useCap === null) useCap = typeof meta.captureTime === 'number';
+  const ts = (useCap ? meta.captureTime : now) / 1000;
+  if (ts - lastTs < 0.028) return;
+  lastTs = ts; frame++;
+  const W = work.width, H = work.height, ppg = mode === 'ppg';
+
+  if (session) {
+    if (session.tStart === null) session.tStart = ts;
+    if (session.warm && ts - session.tStart > WARM_SEC) { session.warm = false; session.t0 = ts; engine.reset(); prevLum = null; }
+    else if (!session.warm && ts - session.t0 >= SESSION_SEC) { finishSession(); return; }
+  }
+  wctx.drawImage(video, 0, 0, W, H); octx.clearRect(0, 0, W, H);
+
+  let m;
   if (ppg) {
-    roi = [W / 4, H / 4, W / 2, H / 2].map(Math.floor);
-    const m = meanRgb(...roi);
+    const roi = [W / 4, H / 4, W / 2, H / 2].map(Math.floor);
+    m = meanRgb(...roi, false);
     const S = SITES[site];
     if (!(m[0] > S.minR && m[0] > S.ratio * m[1] && m[0] > S.ratio * m[2])) {
-      engine.reset(); $('bpm').textContent = '--'; $('status').textContent = `Place the ${S.name} over the camera and flash`; return;
+      engine.reset(); prevLum = null; $('bpm').textContent = '--'; $('status').textContent = `Place the ${S.name} over the camera and flash`; return;
     }
-    lastRgb = m; engine.add(ts, ...m);
   } else {
-    // Face detection is heavy and runs on the main thread, so run it rarely (about 2x/s)
-    // and back off further if it is slow. Between runs the last box is reused.
-    if (detector && now - lastDet > detEvery) {
-      lastDet = now;
-      try {
-        const t0 = performance.now();
-        const dets = detector.detectForVideo(work, t0).detections;   // small canvas = cheap
-        detEvery = Math.max(500, (performance.now() - t0) * 10);     // spend at most ~10% of time detecting
-        if (!dets.length) { engine.reset(); box = null; }
-        else {
-          const bb = dets.map(d => d.boundingBox).sort((a, b) => b.width * b.height - a.width * a.height)[0];
-          box = { x: bb.originX, y: bb.originY, w: bb.width, h: bb.height, det: true };
-        }
-      } catch (e) { detector = null; }
+    updateBox(now, ts, W, H);
+    if (!cur) {
+      if (!lostReset) { engine.reset(); prevLum = null; lostReset = true; }
+      if (session) $('whiteMsg').textContent = 'No face found';
+      else { $('bpm').textContent = '--'; $('status').textContent = 'No face found'; }
+      return;
     }
-    if (!detector && !box) box = { x: W * 0.25, y: H * 0.12, w: W * 0.5, h: H * 0.76, det: false };   // fallback: the oval
-    if (!box) { $('bpm').textContent = '--'; $('status').textContent = 'No face found'; return; }
-    roi = [box.x + box.w * 0.3, box.y + box.h * (box.det ? -0.12 : 0.02), box.w * 0.4, box.h * 0.16].map(Math.floor);   // forehead, above the detected box
-    roi[0] = Math.max(0, roi[0]); roi[1] = Math.max(0, roi[1]);
-    roi[2] = Math.max(2, Math.min(roi[2], W - roi[0])); roi[3] = Math.max(2, Math.min(roi[3], H - roi[1]));
-    const m = meanRgb(...roi); lastRgb = m; engine.add(ts, ...m);
-    octx.strokeStyle = '#4dff9a'; octx.lineWidth = 2; octx.strokeRect(...roi);
+    lostReset = false; if (session) $('whiteMsg').textContent = '';
+    const rois = faceRois(cur, W, H), ms = rois.map(r => meanRgb(...r, true));
+    m = [0, 1, 2].map(i => (ms[0][i] + ms[1][i] + ms[2][i]) / 3);
+    octx.strokeStyle = '#4dff9a'; octx.lineWidth = 2; rois.forEach(r => octx.strokeRect(...r));
+    // movement: how far the face centre travelled in the last second
+    hist.push({ t: ts, x: cur.x + cur.w / 2, y: cur.y + cur.h / 2 }); while (hist[0].t < ts - 1) hist.shift();
+    const d = Math.hypot(hist.at(-1).x - hist[0].x, hist.at(-1).y - hist[0].y) / cur.w;
+    if (d > 0.12) flagUntil = ts + 1.5;
+    if (d > 0.35) { engine.reset(); prevLum = null; }
   }
-  if (frame % 6 === 0) { drawRgb(); updateSwatch(); }
-  if (now - lastUi > 1000) {
-    lastUi = now;
-    const res = engine.estimate(ppg ? site : false);
-    if (!res) { $('bpm').textContent = '--'; $('status').textContent = `Measuring… ${Math.round(engine.progress() * 100)}%`; }
-    else {
-      const ok = res.quality >= MIN_Q, q = Math.round(res.quality * 100);
-      $('bpm').textContent = ok ? Math.round(res.bpm) : '--';
-      $('status').textContent = ok ? `BPM (signal ${q}%)`
-        : `Signal ${q}%, need 35%+. ` + (ppg ? 'Hold still, lighter pressure.' : 'Hold still, face the light.');
-      drawWave(res.pulse);
-    }
+  // lighting jumps: a heartbeat changes brightness by ~1%, so a big frame-to-frame change is an artifact
+  const lum = 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2];
+  if (prevLum !== null) {
+    const j = Math.abs(lum - prevLum) / prevLum;
+    if (j > 0.10) { engine.reset(); flagUntil = ts + 2; } else if (j > 0.04) flagUntil = ts + 2;
+  }
+  prevLum = lum;
+  lastRgb = m; engine.add(ts, ...m);
+  rawRows.push({ t: ts.toFixed(3), r: m[0].toFixed(2), g: m[1].toFixed(2), b: m[2].toFixed(2), mode: ppg ? site : 'face' });
+  if (rawRows.length > 30000) rawRows.splice(0, 3000);
+
+  if (!session && frame % 6 === 0) { drawRgb(); updateSwatch(); }
+  if (ts - lastUi >= 1) {
+    lastUi = ts;
+    const res = engine.estimate(ppg ? site : false), moving = ts < flagUntil;
+    if (!res) { if (!session) { $('bpm').textContent = '--'; $('status').textContent = `Measuring… ${Math.round(engine.progress() * 100)}%`; } return; }
+    const ok = res.quality >= MIN_Q && !moving, q = Math.round(res.quality * 100);
+    addRow({ mode: ppg ? site : (session ? 'face-light' : 'face'), shown: ok ? Math.round(res.bpm) : '', raw: res.raw, smoothed: res.bpm, q: res.quality, held: moving ? 1 : 0 });
+    if (session) { if (!session.warm && ok) session.readings.push({ bpm: res.raw, q: res.quality }); return; }
+    $('bpm').textContent = ok ? Math.round(res.bpm) : '--';
+    $('status').textContent = moving ? 'Movement or lighting change, hold still.'
+      : ok ? `BPM (signal ${q}%)`
+      : `Signal ${q}%, need 35%+. ` + (ppg ? 'Hold still, lighter pressure.' : 'Hold still, face the light.');
+    drawWave(res.pulse);
   }
 }
 
+/* ----- drawing ----- */
 function drawWave(p) {
   const c = $('wave'), x = c.getContext('2d'), n = Math.min(p.length, 300), a = p.slice(p.length - n);
   const mx = Math.max(...a.map(Math.abs)) || 1;
@@ -325,6 +509,25 @@ function drawRgb() {
     x.stroke();
   });
 }
+
+/* ----- accuracy log + CSV ----- */
+function addRow(o) {
+  const ref = $('ref').value.trim();
+  rows.push({ time: new Date().toISOString(), mode: o.mode, shown_bpm: o.shown, raw_bpm: (+o.raw).toFixed(1),
+    smoothed_bpm: (+o.smoothed).toFixed(1), signal_pct: Math.round(o.q * 100), held_back: o.held, ref_bpm: ref });
+  let n = 0, e = 0;
+  for (const r of rows) if (r.shown_bpm !== '' && r.ref_bpm !== '') { n++; e += Math.abs(r.shown_bpm - r.ref_bpm); }
+  $('logInfo').textContent = `${rows.length} rows` + (n ? `, avg error ${(e / n).toFixed(1)} BPM (${n} vs ref)` : '');
+}
+function toCsv(list, cols) { return cols.join(',') + '\n' + list.map(r => cols.map(c => r[c]).join(',')).join('\n'); }
+function download(name, text) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('csv').onclick = () => download('rppg-readings.csv', toCsv(rows, ['time', 'mode', 'shown_bpm', 'raw_bpm', 'smoothed_bpm', 'signal_pct', 'held_back', 'ref_bpm']));
+$('rawcsv').onclick = () => download('rppg-raw-rgb.csv', toCsv(rawRows, ['t', 'r', 'g', 'b', 'mode']));
+$('clear').onclick = () => { rows.length = 0; rawRows.length = 0; $('logInfo').textContent = '0 rows'; };
+
 setMode('face');
 </script>
 </body>
