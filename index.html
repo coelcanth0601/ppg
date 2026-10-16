@@ -46,13 +46,14 @@
   #face { height:100%; aspect-ratio:6/7; border-radius:20px; background:#0a0a0a; display:block; }
   #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#555; font-size:13px; letter-spacing:.12em; }
   .right { display:grid; grid-template-rows:minmax(0,1fr) 120px; gap:16px; min-height:0; }
-  #sonar, #hist { width:100%; height:100%; display:block; min-height:0; }
+  #tl, #hist { width:100%; height:100%; display:block; min-height:0; }
   #hr { position:relative; display:flex; align-items:baseline; justify-content:center; gap:16px; padding:6px 0 14px; }
   #bpm { font-size:clamp(72px,14vh,160px); font-weight:200; line-height:1; font-variant-numeric:tabular-nums;
-    color:#fff; transition:color .6s ease; }
+    color:#fff; transition:color .6s ease, opacity .6s ease; }
   #bpm.beat { animation:beat .3s ease-out; }
   #hr.low #bpm { color:#363636; animation:none; }
-  #pm { font-size:20px; font-weight:300; color:#666; min-width:48px; transition:color .6s; }
+  #pm { font-size:20px; font-weight:300; color:#666; min-width:48px; transition:color .6s, opacity .6s; }
+  #hr.hide #bpm, #hr.hide #pm { opacity:0; }
   #hr.low #pm { color:#333; }
   #qbar { position:absolute; bottom:0; left:50%; height:1px; width:0; transform:translateX(-50%); background:#ff4d5e;
     transition:width .7s ease, background .7s ease; }
@@ -61,8 +62,11 @@
   #app.on #hr { animation:rise .9s cubic-bezier(.2,.8,.2,1) .25s both; }
 
   #by { position:fixed; left:0; right:0; bottom:0; height:44px; display:flex; align-items:center; justify-content:center;
-    font-size:12px; letter-spacing:.16em; color:#555; z-index:5; transition:color .6s, opacity .4s; pointer-events:none; }
+    font-size:12px; letter-spacing:.16em; color:#555; z-index:15; transition:color .6s, opacity .4s; pointer-events:none; }
+  #byt { pointer-events:auto; cursor:pointer; transition:color .3s; padding:8px 14px; }
+  #byt:hover { color:#bbb; }
   body.light #by { color:#9a9a96; }
+  body.light #byt:hover { color:#111; }
   body.padon #by { opacity:0; }
   video { position:fixed; right:0; bottom:0; width:2px; height:2px; opacity:.01; pointer-events:none; }
   .block { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:#777; letter-spacing:.14em; font-size:14px; }
@@ -79,13 +83,13 @@
 <div id="app">
   <main>
     <div class="left"><canvas id="face" width="480" height="560"></canvas><div id="msg"></div></div>
-    <div class="right"><canvas id="sonar"></canvas><canvas id="hist"></canvas></div>
+    <div class="right"><canvas id="tl"></canvas><canvas id="hist"></canvas></div>
   </main>
   <div id="hr" class="low"><div id="bpm">--</div><div id="pm"></div><i id="qbar"></i></div>
   <div></div>
 </div>
 <video id="video" playsinline muted></video>
-<footer id="by">made by Rachit Ranade</footer>
+<footer id="by"><span id="byt">made by Rachit Ranade</span></footer>
 
 <script>
 (function () {
@@ -187,11 +191,15 @@ class Engine {
     for (let k = 0; k < K; k++) { tot += power[k]; if (Math.abs(freqs[k] - f) <= 0.1) sig += power[k]; }
     return { bpm: f * 60, quality: tot > 0 ? Math.min(1, sig / tot) : 0 };   // pure noise scores ~25%
   }
-  estimate() {
+  pulseData() {     // band-passed pulse signal for the current window
     if (this.t.length < 2 || this.t.at(-1) - this.t[0] < this.min) return null;
     const fs = 30, n = Math.floor((this.t.at(-1) - this.t[0]) * fs);
     const R = this.resample(this.r, n, fs), G = this.resample(this.g, n, fs), B = this.resample(this.b, n, fs);
-    const pulse = bandpass(this.pos(R, G, B, fs), fs), sp = this.spectrum(pulse, fs);
+    return { pulse: bandpass(this.pos(R, G, B, fs), fs), t0: this.t[0], fs };
+  }
+  estimate() {
+    const pd = this.pulseData(); if (!pd) return null;
+    const fs = pd.fs, pulse = pd.pulse, n = pulse.length, sp = this.spectrum(pulse, fs);
     if (sp.quality >= MIN_Q) {   // displayed value moves at most 3 BPM per second
       if (this.sm === 0) this.sm = sp.bpm;
       else { const d = sp.bpm - this.sm; if (Math.abs(d) < 30 || sp.quality > 0.6) this.sm += Math.max(-3, Math.min(3, d * 0.4)); }
@@ -199,8 +207,25 @@ class Engine {
     // spectral resolution of the window (60/T BPM) shrinks with signal-to-noise; plus a 2 BPM real-world floor
     const T = n / fs, snr = sp.quality / Math.max(1 - sp.quality, 0.02);
     const sigma = Math.sqrt(((60 / T) / Math.sqrt(Math.max(snr, 0.25))) ** 2 + 4);
-    return { bpm: this.sm > 0 ? this.sm : sp.bpm, raw: sp.bpm, quality: sp.quality, sigma, pulse };
+    return { bpm: this.sm > 0 ? this.sm : sp.bpm, raw: sp.bpm, quality: sp.quality, sigma, pulse, t0: pd.t0 };
   }
+}
+
+// Heartbeats = peaks of the band-passed pulse. The first 0.6 s and last 0.5 s of a window are skipped (filter edge effects).
+function detectBeats(pd, bpm) {
+  const { pulse: p, t0, fs } = pd, tEnd = t0 + (p.length - 1) / fs; let mx = 0;
+  for (const v of p) mx = Math.max(mx, Math.abs(v));
+  const lo = t0 + 0.6, hi = tEnd - 0.5, gap = Math.max(0.3, 0.65 * 60 / bpm), found = [];
+  if (!mx) return { found, lo, hi, mx: 1 };
+  for (let i = 2; i < p.length - 2; i++) {
+    const t = t0 + i / fs; if (t < lo || t > hi) continue;
+    if (p[i] > p[i - 1] && p[i] >= p[i + 1] && p[i] > 0.3 * mx) {
+      const prev = found[found.length - 1];
+      if (prev && t - prev.t < gap) { if (p[i] / mx > prev.a) found[found.length - 1] = { t, a: p[i] / mx }; }
+      else found.push({ t, a: p[i] / mx });
+    }
+  }
+  return { found, lo, hi, mx };
 }
 
 /* ---------- Sound (all synthesised) ---------- */
@@ -265,6 +290,14 @@ function press(k) {
   $('keys').appendChild(b);
 });
 $('unlock').onclick = openPad;
+$('byt').onclick = () => {      // clicking the credit forgets this device and returns to /unlock?
+  try {
+    document.cookie = 'unlocked=; max-age=0; path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+    localStorage.removeItem('unlocked');
+  } catch (e) {}
+  Snd.back(); document.body.style.transition = 'opacity .45s'; document.body.style.opacity = '0';
+  setTimeout(() => location.reload(), 480);
+};
 function showApp() {
   document.body.classList.remove('light', 'padon'); $('pad').classList.remove('on');
   $('landing').classList.add('gone'); $('app').classList.add('on');
@@ -278,10 +311,11 @@ const bins = [new Float32Array(64), new Float32Array(64), new Float32Array(64)];
 const sbins = [new Float32Array(64), new Float32Array(64), new Float32Array(64)];
 let stream = null, track = null, running = false, gen = 0, detector = null, loadingDet = null;
 let lastDet = 0, detEvery = 500, target = null, cur = null, noFaceSince = null, lostReset = false;
-let frame = 0, lastTs = 0, lastUi = 0, useCap = null, lastRgb = null, prevLum = null, flagUntil = 0, mv = [];
-let sonar = { t: [], d: [[], [], []] }, ampS = 0.002, wasOk = false;
-const beat = { on: false, at: 0, per: 800 }, pings = [], rows = [], rawRows = [];
-const SON_W = 6;   // seconds of history shown around the sonar
+let frame = 0, lastTs = 0, lastUi = 0, lastPulse = 0, useCap = null, prevLum = null, flagUntil = 0, mv = [];
+let clk = null, beatsT = [], tlPulse = null, tlMx = 1, flashAt = -1e9, wasOk = false, hrHidden = false, curOk = false, curBpm = 60;
+const beat = { on: false, at: 0, per: 800 }, rows = [], rawRows = [];
+const TL_WIN = 20;   // seconds shown on the beat timeline
+const renderT = nowMs => clk.ts + (nowMs - clk.wall) / 1000;   // stream time "now", for smooth scrolling
 
 async function loadDetector() {
   if (detector || loadingDet) return loadingDet;
@@ -375,16 +409,23 @@ function schedule(g) {
   else requestAnimationFrame(now => { schedule(g); if (g === gen) onFrame(now, {}); });
 }
 
+function setHidden(v) {      // hide the number (face gone, or an implausible rate)
+  if (v === hrHidden) return; hrHidden = v; $('hr').classList.toggle('hide', v);
+  if (v) { $('qbar').style.width = '0px'; beat.on = false; wasOk = false; curOk = false; }
+}
+function resetSignal() { engine.reset(); prevLum = null; beatsT = []; tlPulse = null; beat.on = false; wasOk = false; curOk = false; }
+
 function onFrame(now, meta) {
   if (useCap === null) useCap = typeof meta.captureTime === 'number';
   const ts = (useCap ? meta.captureTime : now) / 1000;
   if (ts - lastTs < 0.028) return;
-  lastTs = ts; frame++;
+  lastTs = ts; frame++; clk = { ts, wall: performance.now() };
   const W = work.width, H = work.height;
   wctx.drawImage(video, 0, 0, W, H);
   updateBox(now, ts, W, H);
+  if (noFaceSince !== null && ts - noFaceSince >= 3) setHidden(true);     // no face for 3 s: hide the heart rate
   if (!cur) {
-    if (!lostReset) { engine.reset(); prevLum = null; lostReset = true; beat.on = false; wasOk = false; $('hr').classList.add('low'); sonar = { t: [], d: [[], [], []] }; }
+    if (!lostReset) { resetSignal(); lostReset = true; $('hr').classList.add('low'); }
     drawPreview(null); return;
   }
   lostReset = false;
@@ -394,46 +435,49 @@ function onFrame(now, meta) {
   mv.push({ t: ts, x: cur.x + cur.w / 2, y: cur.y + cur.h / 2 }); while (mv[0].t < ts - 1) mv.shift();
   const d = Math.hypot(mv.at(-1).x - mv[0].x, mv.at(-1).y - mv[0].y) / cur.w;   // how far the face travelled in 1 s
   if (d > 0.12) flagUntil = ts + 1.5;
-  if (d > 0.35) { engine.reset(); prevLum = null; }
+  if (d > 0.35) resetSignal();
   const lum = 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2];   // a heartbeat moves brightness ~1%; big jumps are artifacts
-  if (prevLum !== null) { const j = Math.abs(lum - prevLum) / prevLum; if (j > 0.10) { engine.reset(); flagUntil = ts + 2; } else if (j > 0.04) flagUntil = ts + 2; }
-  prevLum = lum; lastRgb = m; engine.add(ts, ...m);
+  if (prevLum !== null) { const j = Math.abs(lum - prevLum) / prevLum; if (j > 0.10) { resetSignal(); flagUntil = ts + 2; } else if (j > 0.04) flagUntil = ts + 2; }
+  prevLum = lum; engine.add(ts, ...m);
   rawRows.push({ t: ts.toFixed(3), r: m[0].toFixed(2), g: m[1].toFixed(2), b: m[2].toFixed(2) });
   if (rawRows.length > 30000) rawRows.splice(0, 3000);
-  updateSonar(); drawPreview(rois);
+  drawPreview(rois);
 
-  if (ts - lastUi >= 1) {
-    lastUi = ts;
-    const res = engine.estimate(); if (!res) return;
-    const moving = ts < flagUntil, ok = res.quality >= MIN_Q && !moving;
-    $('hr').classList.toggle('low', !ok);
-    $('bpm').textContent = Math.round(res.bpm);
-    $('pm').textContent = '±' + Math.max(2, Math.round(res.sigma));
-    $('qbar').style.width = Math.round(res.quality * 320) + 'px'; $('qbar').style.background = ok ? '#ff4d5e' : '#333';
-    if (ok && !wasOk) Snd.lock();
-    wasOk = ok; if (ok) planBeats(res); else beat.on = false;
-    rows.push({ time: new Date().toISOString(), bpm: Math.round(res.bpm), raw_bpm: res.raw.toFixed(1), signal_pct: Math.round(res.quality * 100), plus_minus: res.sigma.toFixed(1), greyed: ok ? 0 : 1 });
+  if (ts - lastUi >= 1) {                    // full estimate once a second
+    lastUi = ts; lastPulse = ts;
+    const res = engine.estimate(); if (res) handleEstimate(res, ts);
+  } else if (curOk && ts - lastPulse >= 0.25) {   // beat timeline refreshes 4x a second
+    lastPulse = ts; const pd = engine.pulseData();
+    if (pd) { updateBeats(pd, curBpm, true); planFromBeats(curBpm); }
   }
 }
-function planBeats(res) {    // schedule on-screen/audio beats in phase with the last detected pulse peak
-  const p = res.pulse, fs = 30, per = 60 / res.bpm; let mx = 0; for (const v of p) mx = Math.max(mx, v);
-  let last = -1; for (let i = p.length - 5; i > 1; i--) if (p[i] > p[i - 1] && p[i] >= p[i + 1] && p[i] > 0.4 * mx) { last = i; break; }
-  if (last < 0) { beat.on = false; return; }
-  const age = (p.length - 1 - last) / fs, wait = per - (age % per);
-  beat.per = per * 1000; beat.at = performance.now() + wait * 1000; beat.on = true;
+function handleEstimate(res, ts) {
+  const moving = ts < flagUntil, bpm = Math.round(res.bpm), plausible = bpm >= 50;   // 40s are hidden
+  const ok = res.quality >= MIN_Q && !moving && plausible;
+  setHidden(!plausible);
+  $('hr').classList.toggle('low', !ok);
+  $('bpm').textContent = bpm; $('pm').textContent = '±' + Math.max(2, Math.round(res.sigma));
+  if (!hrHidden) { $('qbar').style.width = Math.round(res.quality * 320) + 'px'; $('qbar').style.background = ok ? '#ff4d5e' : '#333'; }
+  if (ok && !wasOk) Snd.lock();
+  wasOk = ok; curOk = ok; curBpm = res.bpm;
+  updateBeats({ pulse: res.pulse, t0: res.t0, fs: 30 }, res.bpm, ok);
+  if (ok) planFromBeats(res.bpm); else beat.on = false;
+  rows.push({ time: new Date().toISOString(), bpm, raw_bpm: res.raw.toFixed(1), signal_pct: Math.round(res.quality * 100), plus_minus: res.sigma.toFixed(1), greyed: ok ? 0 : 1, hidden: hrHidden ? 1 : 0 });
 }
-function updateSonar() {     // colour deviation of each channel over the last few seconds (trailing 1 s mean removed)
-  const n = engine.t.length, tL = engine.t[n - 1]; let s = n - 1;
-  while (s > 0 && tL - engine.t[s - 1] <= SON_W) s--;
-  const out = { t: engine.t.slice(s), d: [[], [], []] }; let mxAbs = 0;
-  [engine.r, engine.g, engine.b].forEach((a, ci) => {
-    const base = Math.max(0, s - 29); let sum = 0;
-    for (let i = base; i < n; i++) {
-      sum += a[i]; if (i - base >= 30) sum -= a[i - 30];
-      if (i >= s) { const mean = sum / Math.min(30, i - base + 1), v = (a[i] - mean) / mean; out.d[ci].push(v); mxAbs = Math.max(mxAbs, Math.abs(v)); }
-    }
-  });
-  ampS = ampS * 0.97 + 0.03 * Math.max(mxAbs, 2e-4); sonar = out;
+function updateBeats(pd, bpm, ok) {
+  tlPulse = pd;
+  let mx = 0; for (const v of pd.pulse) mx = Math.max(mx, Math.abs(v));
+  tlMx = tlMx === 1 ? (mx || 1) : tlMx * 0.6 + (mx || tlMx) * 0.4;
+  if (!ok) return;                                   // never mark beats on a noisy signal
+  const { found, lo, hi } = detectBeats(pd, bpm), tEnd = pd.t0 + (pd.pulse.length - 1) / pd.fs;
+  beatsT = beatsT.filter(b => b.t < lo || b.t > hi).concat(found).sort((a, b) => a.t - b.t);
+  while (beatsT.length && beatsT[0].t < tEnd - TL_WIN - 5) beatsT.shift();
+}
+function planFromBeats(bpm) {    // time the number pulse and sound to the next beat after the last detected one
+  if (!beatsT.length || !clk) { beat.on = false; return; }
+  const per = 60 / bpm, tr = renderT(performance.now()), last = beatsT[beatsT.length - 1].t;
+  const k = Math.max(1, Math.ceil((tr + 0.15 - last) / per));
+  beat.per = per * 1000; beat.at = performance.now() + (last + k * per - tr) * 1000; beat.on = true;
 }
 
 /* ---------- Drawing ---------- */
@@ -458,47 +502,45 @@ addEventListener('resize', layoutFace);
 const dpr = Math.min(2, window.devicePixelRatio || 1);
 function fit(c) { const w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 const CH_COL = [[255, 77, 94], [61, 255, 160], [77, 155, 255]];
-function tint() {            // current skin colour, brightened for display
-  const m = lastRgb || [200, 150, 130], mx = Math.max(...m);
-  return m.map(v => Math.round(v * 255 / mx + (255 - v * 255 / mx) * 0.25));
-}
-function drawSonar(nowMs) {
-  const c = $('sonar'); fit(c); const x = c.getContext('2d'), w = c.width, h = c.height, cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 14 * dpr;
-  x.clearRect(0, 0, w, h); if (R < 40) return;
-  const tc = tint(), tcs = tc.join(',');
-  x.lineWidth = dpr; x.strokeStyle = 'rgba(255,255,255,.07)';
-  for (const f of [0.25, 0.5, 0.75, 1]) { x.beginPath(); x.arc(cx, cy, R * f, 0, 6.2832); x.stroke(); }
-  x.beginPath(); x.moveTo(cx - R, cy); x.lineTo(cx + R, cy); x.moveTo(cx, cy - R); x.lineTo(cx, cy + R); x.stroke();
-  const t = sonar.t, n = t.length, tL = n ? t[n - 1] : 0;
-  const ang = ts => 6.2832 * (((ts % SON_W) + SON_W) % SON_W / SON_W) - 1.5708;
-  const sw = n ? ang(tL) : 6.2832 * ((nowMs / 1000) % SON_W / SON_W) - 1.5708;
-  if (x.createConicGradient) {          // sweep wake
-    const trail = 1.1, g = x.createConicGradient(sw - trail, cx, cy), p = trail / 6.2832;
-    g.addColorStop(0, `rgba(${tcs},0)`); g.addColorStop(p, `rgba(${tcs},.22)`); g.addColorStop(Math.min(1, p + 0.002), `rgba(${tcs},0)`); g.addColorStop(1, `rgba(${tcs},0)`);
-    x.fillStyle = g; x.beginPath(); x.arc(cx, cy, R, 0, 6.2832); x.fill();
+
+// Timeline of detected heartbeats: the pulse trace scrolls right-to-left, each beat gets a marker and a tick, "now" is the right edge
+function drawTimeline(nowMs) {
+  const c = $('tl'); fit(c); const x = c.getContext('2d'), w = c.width, h = c.height; x.clearRect(0, 0, w, h);
+  const xr = w - 36 * dpr, yw = h * 0.42, A = h * 0.26, lane = h * 0.86;
+  const tr = clk ? renderT(nowMs) : 0, X = t => xr - (tr - t) / TL_WIN * xr;
+  x.lineWidth = dpr; x.strokeStyle = 'rgba(255,255,255,.05)';
+  if (clk) for (let t = Math.floor(tr / 5) * 5; t > tr - TL_WIN; t -= 5) { x.beginPath(); x.moveTo(X(t), 0); x.lineTo(X(t), h); x.stroke(); }
+  x.strokeStyle = 'rgba(255,255,255,.12)'; x.beginPath(); x.moveTo(0, yw); x.lineTo(xr, yw); x.stroke();           // baseline
+  x.beginPath(); x.moveTo(0, lane); x.lineTo(xr, lane); x.stroke();                                               // beat lane
+  const flash = Math.max(0, 1 - (nowMs - flashAt) / 700);
+  x.strokeStyle = `rgba(255,255,255,${(0.14 + 0.5 * flash).toFixed(3)})`; x.beginPath(); x.moveTo(xr, 0); x.lineTo(xr, h); x.stroke();   // now
+  if (clk && tlPulse) {                                      // pulse trace
+    const { pulse: p, t0, fs } = tlPulse, g = x.createLinearGradient(0, 0, xr, 0);
+    const a = curOk ? 0.75 : 0.22;
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.3, `rgba(255,255,255,${(a * 0.5).toFixed(2)})`); g.addColorStop(1, `rgba(255,255,255,${a})`);
+    x.strokeStyle = g; x.lineWidth = 1.6 * dpr; x.lineJoin = 'round'; x.beginPath(); let started = false;
+    for (let i = Math.max(0, Math.floor((tr - TL_WIN - t0) * fs)); i < p.length; i++) {
+      const px = X(t0 + i / fs), py = yw - Math.max(-1.3, Math.min(1.3, p[i] / tlMx)) * A;
+      if (!started) { x.moveTo(px, py); started = true; } else x.lineTo(px, py);
+    }
+    x.stroke();
   }
-  x.strokeStyle = `rgba(${tcs},.5)`; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(sw) * R, cy + Math.sin(sw) * R); x.stroke();
-  x.globalCompositeOperation = 'lighter'; x.lineCap = 'round';
-  const bases = [0.38, 0.6, 0.82], k = 0.085 * R / ampS;
-  for (let ci = 0; ci < 3; ci++) {
-    const col = CH_COL[ci].join(','), b = bases[ci] * R;
-    x.strokeStyle = `rgba(${col},.14)`; x.lineWidth = dpr; x.beginPath(); x.arc(cx, cy, b, 0, 6.2832); x.stroke();
-    const d = sonar.d[ci]; x.lineWidth = 2.4 * dpr;
-    for (let i = 1; i < n; i++) {
-      const a0 = ang(t[i - 1]), a1 = ang(t[i]); if (a1 < a0) continue;        // skip the wrap-around
-      const al = Math.pow(1 - (tL - t[i]) / SON_W, 1.6), r0 = b + Math.max(-0.16 * R, Math.min(0.16 * R, d[i - 1] * k)), r1 = b + Math.max(-0.16 * R, Math.min(0.16 * R, d[i] * k));
-      x.strokeStyle = `rgba(${col},${al.toFixed(3)})`; x.beginPath();
-      x.moveTo(cx + Math.cos(a0) * r0, cy + Math.sin(a0) * r0); x.lineTo(cx + Math.cos(a1) * r1, cy + Math.sin(a1) * r1); x.stroke();
+  x.lineCap = 'round';
+  for (let i = 0; i < beatsT.length; i++) {                  // detected beats
+    const b = beatsT[i], bx = X(b.t); if (bx < 0 || bx > xr + 2) continue;
+    const al = Math.max(0.15, Math.pow(1 - (tr - b.t) / TL_WIN, 0.8)), by = yw - Math.min(1, b.a) * A;
+    x.strokeStyle = `rgba(255,77,94,${(al * 0.3).toFixed(3)})`; x.lineWidth = dpr; x.beginPath(); x.moveTo(bx, by); x.lineTo(bx, lane); x.stroke();
+    x.strokeStyle = `rgba(255,77,94,${al.toFixed(3)})`; x.lineWidth = 2.6 * dpr; x.beginPath(); x.moveTo(bx, lane - 9 * dpr); x.lineTo(bx, lane + 9 * dpr); x.stroke();
+    x.fillStyle = `rgba(255,77,94,${al.toFixed(3)})`; x.beginPath(); x.arc(bx, by, 3.4 * dpr, 0, 6.2832); x.fill();
+    if (i > 0) {                                             // gap to the previous beat
+      const px = X(beatsT[i - 1].t); x.strokeStyle = `rgba(255,255,255,${(al * 0.18).toFixed(3)})`; x.lineWidth = dpr;
+      x.beginPath(); x.moveTo(px + 3 * dpr, lane); x.lineTo(bx - 3 * dpr, lane); x.stroke();
     }
   }
-  x.globalCompositeOperation = 'source-over';
-  for (let i = pings.length - 1; i >= 0; i--) {     // one expanding ping per heartbeat
-    const age = (nowMs - pings[i]) / 1900; if (age > 1) { pings.splice(i, 1); continue; }
-    x.strokeStyle = `rgba(${tcs},${(Math.pow(1 - age, 2) * 0.55).toFixed(3)})`; x.lineWidth = 1.6 * dpr;
-    x.beginPath(); x.arc(cx, cy, R * (0.06 + 0.94 * age), 0, 6.2832); x.stroke();
+  if (flash > 0) {                                           // ring on the now-line at each beat
+    x.strokeStyle = `rgba(255,77,94,${(flash * flash * 0.7).toFixed(3)})`; x.lineWidth = 1.6 * dpr;
+    x.beginPath(); x.arc(xr, yw, (5 + 26 * (1 - flash)) * dpr, 0, 6.2832); x.stroke();
   }
-  const last = pings.length ? (nowMs - pings[pings.length - 1]) : 9e9, pulse = Math.max(0, 1 - last / 350);
-  x.fillStyle = `rgb(${tcs})`; x.beginPath(); x.arc(cx, cy, (3.5 + 5 * pulse) * dpr, 0, 6.2832); x.fill();
 }
 let histMax = 1;
 function drawHist() {
@@ -520,11 +562,11 @@ function loop(nowMs) {
   requestAnimationFrame(loop);
   if (!$('app').classList.contains('on')) return;
   if (beat.on && nowMs >= beat.at) {
-    pings.push(nowMs); Snd.beat();
+    flashAt = nowMs; Snd.beat();
     const el = $('bpm'); el.classList.remove('beat'); void el.offsetWidth; el.classList.add('beat');
     beat.at += beat.per; if (nowMs - beat.at > beat.per * 2) beat.at = nowMs + beat.per;
   }
-  drawSonar(nowMs); drawHist();
+  drawTimeline(nowMs); drawHist();
 }
 
 /* ---------- Keys: M mute, E readings CSV, R raw CSV ---------- */
