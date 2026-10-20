@@ -12,14 +12,21 @@
   button { font:inherit; color:inherit; }
 
   /* landing */
-  #landing { position:fixed; inset:0; background:#f4f4f1; display:flex; align-items:center; justify-content:center;
+  #landing { position:fixed; inset:0; background:#000; display:flex; align-items:center; justify-content:center;
     transition:opacity .7s ease, visibility .7s; z-index:10; }
   #landing.gone { opacity:0; visibility:hidden; pointer-events:none; }
-  #unlock { all:unset; cursor:pointer; color:#0b0b0b; font:200 clamp(56px,11vw,170px)/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    letter-spacing:-.03em; transition:letter-spacing .6s cubic-bezier(.2,.8,.2,1), transform .2s, opacity .3s;
-    animation:rise 1s cubic-bezier(.2,.8,.2,1) both; }
-  #unlock:hover { letter-spacing:.03em; }
-  #unlock:active { transform:scale(.97); opacity:.7; }
+  #unlock { all:unset; cursor:pointer; font:200 clamp(56px,11vw,170px)/1.08 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    letter-spacing:-.03em; padding:16px 28px;
+    --mx:50%; --my:50%; --ang:125deg;
+    background-image:
+      radial-gradient(circle 280px at var(--mx) var(--my), #ffffff 0%, #ff4d5e 42%, transparent 78%),
+      linear-gradient(var(--ang), #444 0%, #999 25%, #ff4d5e 50%, #ffb3ba 75%, #444 100%);
+    background-size:100% 100%, 260% 260%;
+    -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
+    transition:letter-spacing .6s cubic-bezier(.2,.8,.2,1), transform .25s ease, filter .3s ease;
+    animation:rise 1s cubic-bezier(.2,.8,.2,1) both, gradFlow 7s ease-in-out infinite; }
+  #unlock:hover { letter-spacing:.03em; filter:drop-shadow(0 0 32px rgba(255,77,94,.28)); }
+  #unlock:active { transform:scale(.97); opacity:.8; }
 
   /* keypad */
   #pad { position:fixed; inset:0; background:#000; z-index:20; display:flex; flex-direction:column; align-items:center;
@@ -37,27 +44,31 @@
   .k:hover { background:#101010; border-color:#555; }
   .k:active { transform:scale(.91); background:#1c1c1c; }
 
-  /* setup guide animation */
+  /* minimalist setup guide */
   #guide { position:fixed; inset:0; background:#000; z-index:18; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:34px; opacity:0; visibility:hidden;
-    transition:opacity .65s ease, visibility .65s; padding:24px; }
+    align-items:center; justify-content:center; gap:44px; opacity:0; visibility:hidden;
+    transition:opacity .65s ease, visibility .65s; padding:32px; }
   #guide.on { opacity:1; visibility:visible; }
-  .stage { width:min(500px,90vw); height:210px; border:1px solid #1c1c1c; border-radius:22px;
-    background:radial-gradient(circle at 28% 50%, #170a0d 0%, #070707 72%); position:relative;
-    display:flex; align-items:center; justify-content:center; overflow:hidden; }
-  .stage svg { width:100%; height:100%; display:block; }
-  .beam { animation:beamPulse 3s ease-in-out infinite; transform-origin:105px 100px; }
-  .person-grp { animation:personPos 4.2s ease-in-out infinite; }
-  .ray { stroke-dasharray:5 5; animation:rayFlow 1.6s linear infinite; }
-  .pulse-ring { animation:ringOut 1.8s ease-out infinite; transform-origin:330px 84px; }
-  .tips { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; max-width:680px; }
-  .tip { flex:1; min-width:185px; background:#080808; border:1px solid #1a1a1a; border-radius:14px; padding:16px 18px; }
-  .tip b { display:block; font-size:12px; font-weight:500; letter-spacing:.12em; text-transform:uppercase; color:#ff4d5e; margin-bottom:6px; }
-  .tip p { margin:0; font-size:13px; color:#888; line-height:1.45; font-weight:300; }
-  #startBtn { border:1px solid #2e2e2e; background:#0c0c0c; color:#eee; padding:13px 38px; border-radius:99px;
-    font-size:12px; letter-spacing:.18em; text-transform:uppercase; cursor:pointer;
-    transition:background .25s, border-color .25s, transform .15s, box-shadow .25s; }
-  #startBtn:hover { background:#151515; border-color:#ff4d5e; box-shadow:0 0 24px #ff4d5e2a; }
+  .cards { display:grid; grid-template-columns:repeat(3, minmax(200px, 240px)); gap:22px; max-width:780px; width:100%; }
+  .card { background:#060606; border:1px solid #181818; border-radius:20px; padding:28px 22px 24px;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    transition:border-color .35s ease, transform .35s ease; }
+  .card:hover { border-color:#2c2c2c; transform:translateY(-3px); }
+  .card svg { width:120px; height:96px; margin-bottom:20px; overflow:visible; }
+  .card b { font-size:12px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:#eee; margin-bottom:8px; }
+  .card p { margin:0; font-size:13px; color:#777; line-height:1.5; font-weight:300; }
+
+  /* simple drawing animations */
+  .d-user { animation:slideDist 3.6s ease-in-out infinite; }
+  .d-line { stroke-dasharray:4 4; animation:dashMove 1.5s linear infinite; }
+  .d-wave { animation:waveFade 2.4s ease-in-out infinite; }
+  .d-wave2 { animation:waveFade 2.4s ease-in-out 0.6s infinite; }
+  .d-dot { animation:heartDot 1.6s ease-in-out infinite; transform-origin:60px 48px; }
+
+  #startBtn { border:1px solid #2a2a2a; background:#0a0a0a; color:#eee; padding:14px 42px; border-radius:99px;
+    font-size:12px; letter-spacing:.2em; text-transform:uppercase; cursor:pointer;
+    transition:background .25s, border-color .25s, transform .15s, box-shadow .3s; }
+  #startBtn:hover { background:#121212; border-color:#ff4d5e; box-shadow:0 0 28px rgba(255,77,94,.2); }
   #startBtn:active { transform:scale(.96); }
 
   /* app */
@@ -98,80 +109,79 @@
   #by { position:fixed; left:0; right:0; bottom:0; height:44px; display:flex; align-items:center; justify-content:center;
     font-size:12px; letter-spacing:.16em; color:#555; z-index:15; transition:color .6s, opacity .4s; pointer-events:none; }
   #byt { pointer-events:auto; cursor:pointer; transition:color .3s; padding:8px 14px; }
-  #byt:hover { color:#bbb; }
-  body.light #by { color:#9a9a96; }
-  body.light #byt:hover { color:#111; }
+  #byt:hover { color:#ddd; }
   body.padon #by { opacity:0; }
   video { position:fixed; right:0; bottom:0; width:2px; height:2px; opacity:.01; pointer-events:none; }
   .block { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:#777; letter-spacing:.14em; font-size:14px; }
 
   @keyframes rise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+  @keyframes gradFlow { 0%,100% { background-position:0% 0%, 0% 50%; } 50% { background-position:0% 0%, 100% 50%; } }
   @keyframes shake { 0%,100% { transform:none; } 20% { transform:translateX(-12px); } 40% { transform:translateX(10px); }
     60% { transform:translateX(-7px); } 80% { transform:translateX(4px); } }
   @keyframes beat { 0% { transform:scale(1); } 30% { transform:scale(1.035); } 100% { transform:scale(1); } }
-  @keyframes beamPulse { 0%,100% { opacity:.45; } 50% { opacity:.85; } }
-  @keyframes personPos { 0%,100% { transform:translateX(0); } 50% { transform:translateX(-14px); } }
-  @keyframes rayFlow { to { stroke-dashoffset:-20; } }
-  @keyframes ringOut { 0% { transform:scale(.85); opacity:.75; } 100% { transform:scale(1.55); opacity:0; } }
+  @keyframes slideDist { 0%,100% { transform:translateX(0); } 50% { transform:translateX(-8px); } }
+  @keyframes dashMove { to { stroke-dashoffset:-16; } }
+  @keyframes waveFade { 0%,100% { opacity:.2; transform:translateX(-2px); } 50% { opacity:.95; transform:translateX(2px); } }
+  @keyframes heartDot { 0%,100% { transform:scale(1); opacity:.85; } 50% { transform:scale(1.35); opacity:1; } }
   @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.35; } }
 </style>
 </head>
-<body class="light">
+<body>
 <div id="landing"><button id="unlock">/unlock?</button></div>
 <div id="pad"><div id="dots"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div id="keys"></div></div>
 
 <div id="guide">
-  <div class="stage">
-    <svg viewBox="0 0 460 190" fill="none">
-      <defs>
-        <linearGradient id="beamGrad" x1="105" y1="95" x2="365" y2="95" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stop-color="#ff4d5e" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="#ff4d5e" stop-opacity="0.0"/>
-        </linearGradient>
-      </defs>
-      <!-- FOV / front light cone -->
-      <polygon class="beam" points="105,82 365,30 365,155" fill="url(#beamGrad)"/>
-      <!-- Monitor & Webcam -->
-      <rect x="64" y="64" width="28" height="68" rx="4" stroke="#666" stroke-width="1.8" fill="#0c0c0c"/>
-      <path d="M78 132 L78 152 M64 152 L92 152" stroke="#666" stroke-width="1.8" stroke-linecap="round"/>
-      <!-- Webcam housing + active lens -->
-      <rect x="86" y="72" width="16" height="14" rx="4" fill="#181818" stroke="#aaa" stroke-width="1.5"/>
-      <circle cx="102" cy="79" r="3.5" fill="#ff4d5e"/>
-      <!-- Front light rays -->
-      <line class="ray" x1="114" y1="68" x2="290" y2="68" stroke="#ff4d5e" stroke-opacity="0.45" stroke-width="1.2"/>
-      <line class="ray" x1="114" y1="92" x2="290" y2="92" stroke="#ff4d5e" stroke-opacity="0.45" stroke-width="1.2"/>
-      <!-- 40cm distance ruler -->
-      <line x1="115" y1="152" x2="305" y2="152" stroke="#444" stroke-width="1.2" stroke-dasharray="3 4"/>
-      <path d="M115 147 L115 157 M305 147 L305 157" stroke="#666" stroke-width="1.2"/>
-      <text x="210" y="169" fill="#888" font-size="11" text-anchor="middle" letter-spacing="2">~ 40 CM</text>
-      <!-- Person silhouette with pulse -->
-      <g class="person-grp">
-        <circle class="pulse-ring" cx="330" cy="84" r="22" stroke="#ff4d5e" stroke-width="1.4"/>
-        <circle cx="330" cy="84" r="20" fill="#14090b" stroke="#eee" stroke-width="1.8"/>
-        <!-- ROI patches on face -->
-        <rect x="322" y="71" width="16" height="6" rx="1.5" fill="#ff4d5e" fill-opacity="0.65"/>
-        <rect x="316" y="84" width="8" height="6" rx="1.5" fill="#ff4d5e" fill-opacity="0.65"/>
-        <rect x="336" y="84" width="8" height="6" rx="1.5" fill="#ff4d5e" fill-opacity="0.65"/>
-        <!-- Shoulders -->
-        <path d="M294 152 C294 122 366 122 366 152" stroke="#eee" stroke-width="1.8" stroke-linecap="round" fill="#0d0d0d"/>
-      </g>
-    </svg>
+  <div class="cards">
+    <!-- Card 1: 40cm Distance -->
+    <div class="card">
+      <svg viewBox="0 0 120 96" fill="none">
+        <!-- Minimal webcam on left -->
+        <rect x="10" y="34" width="12" height="28" rx="3" stroke="#777" stroke-width="1.5"/>
+        <circle cx="22" cy="48" r="2.5" fill="#ff4d5e"/>
+        <!-- Animated distance line -->
+        <line class="d-line" x1="30" y1="48" x2="74" y2="48" stroke="#ff4d5e" stroke-width="1.4"/>
+        <text x="52" y="39" fill="#888" font-size="9" text-anchor="middle" letter-spacing="1.5">40 CM</text>
+        <!-- Simple person icon on right -->
+        <g class="d-user">
+          <circle cx="94" cy="40" r="10" stroke="#eee" stroke-width="1.5"/>
+          <path d="M78 68 C78 55 110 55 110 68" stroke="#eee" stroke-width="1.5" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <b>Up to 40 cm</b>
+      <p>Sit comfortably close (~40 cm) directly in front of your camera.</p>
+    </div>
+
+    <!-- Card 2: Front Lighting -->
+    <div class="card">
+      <svg viewBox="0 0 120 96" fill="none">
+        <!-- Simple sun / light icon -->
+        <circle cx="24" cy="48" r="7" stroke="#ff4d5e" stroke-width="1.5"/>
+        <path d="M24 34 V37 M24 59 V62 M10 48 H13 M35 48 H38 M14 38 L16.5 40.5 M31.5 55.5 L34 58 M34 38 L31.5 40.5 M16.5 55.5 L14 58" stroke="#ff4d5e" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- Gentle light waves hitting face -->
+        <path class="d-wave" d="M48 36 A18 18 0 0 1 48 60" stroke="#ff4d5e" stroke-width="1.4" stroke-linecap="round"/>
+        <path class="d-wave2" d="M58 31 A24 24 0 0 1 58 65" stroke="#ff4d5e" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- Face with lit front arc -->
+        <circle cx="88" cy="48" r="14" stroke="#444" stroke-width="1.5"/>
+        <path d="M88 34 A14 14 0 0 0 88 62" stroke="#eee" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <b>Front Lighting</b>
+      <p>Keep even light facing you. Avoid strong backlighting or dim rooms.</p>
+    </div>
+
+    <!-- Card 3: Stay Still -->
+    <div class="card">
+      <svg viewBox="0 0 120 96" fill="none">
+        <!-- Minimal corner focus brackets -->
+        <path d="M32 32 V22 H42 M78 22 H88 V32 M88 64 V74 H78 M42 74 H32 V64" stroke="#555" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Centered still face & pulse dot -->
+        <circle cx="60" cy="48" r="15" stroke="#eee" stroke-width="1.5"/>
+        <circle class="d-dot" cx="60" cy="48" r="3.5" fill="#ff4d5e"/>
+      </svg>
+      <b>Stay Still</b>
+      <p>Rest naturally and minimize head movement while measuring.</p>
+    </div>
   </div>
-  <div class="tips">
-    <div class="tip">
-      <b>1. Up to 40 cm</b>
-      <p>Sit close (~40 cm / 16 in) directly in front of your webcam so your face fills the frame.</p>
-    </div>
-    <div class="tip">
-      <b>2. Front Lighting</b>
-      <p>Use steady, even light facing you. Avoid strong backlighting or dim rooms.</p>
-    </div>
-    <div class="tip">
-      <b>3. Stay Still</b>
-      <p>Rest comfortably and minimize head movement or talking while measuring.</p>
-    </div>
-  </div>
-  <button id="startBtn">continue to camera</button>
+  <button id="startBtn">continue</button>
 </div>
 
 <div id="app">
@@ -197,8 +207,20 @@ if (matchMedia('(pointer: coarse)').matches || innerWidth < 800) {
   document.body.innerHTML = '<div class="block">desktop only</div>'; return;
 }
 
+/* ---------- Cursor-reactive gradient on /unlock? ---------- */
+const unlockEl = $('unlock');
+let tMx = 50, tMy = 50, cMx = 50, cMy = 50;
+addEventListener('pointermove', e => {
+  if ($('landing').classList.contains('gone')) return;
+  const r = unlockEl.getBoundingClientRect();
+  tMx = ((e.clientX - r.left) / Math.max(1, r.width)) * 100;
+  tMy = ((e.clientY - r.top) / Math.max(1, r.height)) * 100;
+  const ang = Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI + 90;
+  unlockEl.style.setProperty('--ang', ang.toFixed(1) + 'deg');
+});
+
 /* ---------- Signal engine ---------- */
-const MIN_Q = 0.35;   // below this signal quality the heart rate is greyed out
+const MIN_Q = 0.20;   // lowered to 20% confidence threshold
 
 function fft(re, im) {          // in-place radix-2 FFT
   const n = re.length;
@@ -207,7 +229,7 @@ function fft(re, im) {          // in-place radix-2 FFT
     if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
   }
   for (let len = 2; len <= n; len <<= 1) {
-    const ang = -2 * Math.PI * len / (len * len), wr = Math.cos(-2 * Math.PI / len), wi = Math.sin(-2 * Math.PI / len), half = len >> 1;
+    const wr = Math.cos(-2 * Math.PI / len), wi = Math.sin(-2 * Math.PI / len), half = len >> 1;
     for (let i = 0; i < n; i += len) {
       let cr = 1, ci = 0;
       for (let k = 0; k < half; k++) {
@@ -247,8 +269,8 @@ function bandpass(x, fs, lo = 0.6, hi = 3.3) {
 
 class Engine {
   constructor(win = 20, min = 10) { this.win = win; this.min = min; this.fs = 30; this.reset(); }
-  reset() { this.t = []; this.c = [0, 1, 2].map(() => [[], [], []]); this.sm = 0; }   // c[roi][channel]
-  add(ts, v) {                       // v = [[r,g,b] forehead, [r,g,b] left cheek, [r,g,b] right cheek]
+  reset() { this.t = []; this.c = [0, 1, 2].map(() => [[], [], []]); this.sm = 0; }
+  add(ts, v) {
     this.t.push(ts); for (let k = 0; k < 3; k++) for (let ch = 0; ch < 3; ch++) this.c[k][ch].push(v[k][ch]);
     while (this.t.length > 1 && ts - this.t[0] > this.win) {
       this.t.shift(); for (let k = 0; k < 3; k++) for (let ch = 0; ch < 3; ch++) this.c[k][ch].shift();
@@ -265,7 +287,7 @@ class Engine {
     return out;
   }
   std(a) { let m = 0; for (const v of a) m += v; m /= a.length; let s = 0; for (const v of a) s += (v - m) * (v - m); return Math.sqrt(s / a.length); }
-  pos(R, G, B, fs) {            // Wang et al. 2017, Plane-Orthogonal-to-Skin (window statistics from prefix sums)
+  pos(R, G, B, fs) {
     const n = R.length, L = Math.floor(1.6 * fs), h = new Float64Array(n);
     if (n < L + 1) return h;
     const S = () => new Float64Array(n + 1), pr = S(), pg = S(), pb = S(), prr = S(), pgg = S(), pbb = S(), prg = S(), prb = S(), pgb = S();
@@ -278,37 +300,37 @@ class Engine {
       const e = s + L, mr = (pr[e] - pr[s]) / L, mg = (pg[e] - pg[s]) / L, mb = (pb[e] - pb[s]) / L;
       const Vr = ((prr[e] - prr[s]) / L - mr * mr) / (mr * mr), Vg = ((pgg[e] - pgg[s]) / L - mg * mg) / (mg * mg), Vb = ((pbb[e] - pbb[s]) / L - mb * mb) / (mb * mb);
       const Crg = ((prg[e] - prg[s]) / L - mr * mg) / (mr * mg), Crb = ((prb[e] - prb[s]) / L - mr * mb) / (mr * mb), Cgb = ((pgb[e] - pgb[s]) / L - mg * mb) / (mg * mb);
-      const v1 = Vg + Vb - 2 * Cgb, v2 = Vg + Vb + 4 * Vr + 2 * Cgb - 4 * Crg - 4 * Crb;     // variances of (g-b) and (g+b-2r), normalised
+      const v1 = Vg + Vb - 2 * Cgb, v2 = Vg + Vb + 4 * Vr + 2 * Cgb - 4 * Crg - 4 * Crb;
       const al = Math.sqrt(Math.max(v1, 0)) / (Math.sqrt(Math.max(v2, 0)) + 1e-9);
-      const cG = (1 + al) / mg, cB = (al - 1) / mb, cR = -2 * al / mr;                     // s1 + al*s2 as one linear combination (zero mean)
+      const cG = (1 + al) / mg, cB = (al - 1) / mb, cR = -2 * al / mr;
       for (let i = s; i < e; i++) h[i] += cR * R[i] + cG * G[i] + cB * B[i];
     }
     return h;
   }
-  spectrum(pulse, fs, prior) {      // zero-padded FFT; prior = previous BPM (0 for none)
+  spectrum(pulse, fs, prior) {
     const n = pulse.length, N = fs > 45 ? 8192 : 4096, re = new Float64Array(N), im = new Float64Array(N);
     for (let i = 0; i < n; i++) re[i] = pulse[i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)));
     fft(re, im);
     const df = fs / N, kLo = Math.ceil(0.7 / df), kHi = Math.floor(3.0 / df), pw = k => re[k] * re[k] + im[k] * im[k];
     const P = new Float64Array(kHi + 2); let pk = kLo, tot = 0;
     for (let k = kLo; k <= kHi; k++) { P[k] = pw(k); tot += P[k]; if (P[k] > P[pk]) pk = k; }
-    if (pk * df / 2 >= 0.9) {       // a peak at half the frequency that is nearly as strong means the main peak is a harmonic
+    if (pk * df / 2 >= 0.9) {
       const kh = Math.round(pk * df / 2 / df), w = Math.round(0.05 / df); let best = kh;
       for (let k = Math.max(kLo, kh - w); k <= Math.min(kHi, kh + w); k++) if (P[k] > P[best]) best = k;
       if (P[best] > 0.6 * P[pk]) pk = best;
     }
-    if (prior > 0) {                // stay near the previous estimate unless something else clearly dominates
+    if (prior > 0) {
       const kp = Math.round(prior / 60 / df), w = Math.round(12 / 60 / df); let best = -1;
       for (let k = Math.max(kLo, kp - w); k <= Math.min(kHi, kp + w); k++) if (best < 0 || P[k] > P[best]) best = k;
       if (best >= 0 && P[best] >= 0.5 * P[pk]) pk = best;
     }
     let f = pk * df;
-    const a = pw(pk - 1), b = pw(pk), c = pw(pk + 1), d = a - 2 * b + c;     // parabolic refinement
+    const a = pw(pk - 1), b = pw(pk), c = pw(pk + 1), d = a - 2 * b + c;
     if (d < 0) f += 0.5 * (a - c) / d * df;
     let sig = 0; for (let k = kLo; k <= kHi; k++) if (Math.abs(k * df - f) <= 0.1) sig += P[k];
-    return { bpm: f * 60, quality: tot > 0 ? Math.min(1, sig / tot) : 0 };   // pure noise scores ~25%
+    return { bpm: f * 60, quality: tot > 0 ? Math.min(1, sig / tot) : 0 };
   }
-  pulseData(minSec) {     // POS on forehead and each cheek, band-passed, fused by each patch's own signal quality
+  pulseData(minSec) {
     const T = this.t, ms = minSec === undefined ? this.min : minSec;
     if (T.length < 2 || T.at(-1) - T[0] < ms) return null;
     const fs = this.fs, n = Math.floor((T.at(-1) - T[0]) * fs);
@@ -317,18 +339,17 @@ class Engine {
       const p = bandpass(this.pos(r, g, b, fs), fs);
       return { p, sd: this.std(p) || 1, q: this.spectrum(p, fs, 0).quality };
     });
-    const ws = per.map(o => Math.max(o.q - 0.15, 0.02) ** 2), sw = ws[0] + ws[1] + ws[2], pulse = new Float64Array(n);
+    const ws = per.map(o => Math.max(o.q - 0.10, 0.02) ** 2), sw = ws[0] + ws[1] + ws[2], pulse = new Float64Array(n);
     per.forEach((o, k) => { const w = ws[k] / sw / o.sd; for (let i = 0; i < n; i++) pulse[i] += w * o.p[i]; });
     return { pulse, per: per.map(o => o.p), t0: T[0], fs, qs: per.map(o => o.q) };
   }
   estimate() {
     const pd = this.pulseData(); if (!pd) return null;
     const fs = pd.fs, pulse = pd.pulse, n = pulse.length, sp = this.spectrum(pulse, fs, this.sm);
-    if (sp.quality >= MIN_Q) {   // displayed value moves at most 3 BPM per second
+    if (sp.quality >= MIN_Q) {
       if (this.sm === 0) this.sm = sp.bpm;
       else { const d = sp.bpm - this.sm; if (Math.abs(d) < 30 || sp.quality > 0.6) this.sm += Math.max(-3, Math.min(3, d * 0.4)); }
     }
-    // spectral resolution of the window (60/T BPM) shrinks with signal-to-noise; plus a 2 BPM real-world floor
     const T = n / fs, snr = sp.quality / Math.max(1 - sp.quality, 0.02);
     const sigma = Math.sqrt(((60 / T) / Math.sqrt(Math.max(snr, 0.25))) ** 2 + 4);
     return { bpm: this.sm > 0 ? this.sm : sp.bpm, raw: sp.bpm, quality: sp.quality, sigma, pulse, per: pd.per, t0: pd.t0, fs };
@@ -489,12 +510,12 @@ $('byt').onclick = () => {
   setTimeout(() => location.reload(), 480);
 };
 function showGuide() {
-  document.body.classList.remove('light', 'padon'); $('pad').classList.remove('on');
+  document.body.classList.remove('padon'); $('pad').classList.remove('on');
   $('landing').classList.add('gone'); $('guide').classList.add('on');
   loadDetector();
 }
 function showApp() {
-  document.body.classList.remove('light', 'padon'); $('pad').classList.remove('on');
+  document.body.classList.remove('padon'); $('pad').classList.remove('on');
   $('landing').classList.add('gone'); $('guide').classList.remove('on'); $('app').classList.add('on');
   layoutFace(); startCamera();
 }
@@ -559,7 +580,7 @@ function updateBox(now, ts, W, H) {
     if (ts - noFaceSince > 1.5) cur = null;
   }
 }
-function faceRois(b, W, H) {      // forehead + both cheeks
+function faceRois(b, W, H) {
   const raw = [
     [b.x + b.w * 0.28, b.y + b.h * (b.det ? -0.13 : 0.02), b.w * 0.44, b.h * 0.17],
     [b.x + b.w * 0.11, b.y + b.h * 0.51, b.w * 0.26, b.h * 0.16],
@@ -571,7 +592,7 @@ function faceRois(b, W, H) {      // forehead + both cheeks
     return [x, y, Math.max(2, Math.min(w, W - x)), Math.max(2, Math.min(h, H - y))];
   });
 }
-function sampleRoi(x, y, w, h) {   // mean RGB of skin pixels (darker hair/brow pixels dropped)
+function sampleRoi(x, y, w, h) {
   const d = wctx.getImageData(x, y, w, h).data, n = d.length / 4; let s = 0;
   for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
   const lim = 0.65 * s / n; let r = 0, g = 0, b = 0, c = 0;
@@ -714,7 +735,6 @@ function drawPreview(rois, nowMs) {
   const k = vw / work.width, cw = cur.w * 2.1, ch = cw * CH / CW, sx = cur.x + cur.w / 2 - cw / 2, sy = cur.y + cur.h * 0.42 - ch / 2;
   x.drawImage(video, sx * k, sy * k, cw * k, ch * k, 0, 0, CW, CH);
 
-  // Compute instantaneous pulse & beat flash intensity (matching #ff4d5e on the timeline)
   const flash = Math.max(0, 1 - (nowMs - flashAt) / 480);
   let wave = 0;
   if (clk && tlPulse) {
@@ -723,7 +743,6 @@ function drawPreview(rois, nowMs) {
   }
   const redAmt = curOk ? Math.min(1, flash * 0.75 + wave * 0.45) : wave * 0.18;
 
-  // Soft radial red pulse across the face
   if (redAmt > 0.01) {
     const fx = (cur.x + cur.w / 2 - sx) / cw * CW, fy = (cur.y + cur.h * 0.42 - sy) / ch * CH, fr = (cur.w / cw * CW) * 0.72;
     const grd = x.createRadialGradient(fx, fy, fr * 0.08, fx, fy, fr);
@@ -734,7 +753,6 @@ function drawPreview(rois, nowMs) {
     x.fillRect(0, 0, CW, CH);
   }
 
-  // Flash the 3 skin ROI patches in the same #ff4d5e red as the timeline beat markers
   for (const [rx, ry, rw, rh] of rois) {
     const px = (rx - sx) / cw * CW, py = (ry - sy) / ch * CH, pw = rw / cw * CW, ph = rh / ch * CH;
     if (redAmt > 0.01) {
@@ -757,7 +775,6 @@ addEventListener('resize', layoutFace);
 const dpr = Math.min(2, window.devicePixelRatio || 1);
 function fit(c) { const w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
 
-// Timeline of detected heartbeats: the pulse trace scrolls right-to-left, each beat gets a marker and a tick, "now" is the right edge
 function drawTimeline(nowMs) {
   const c = $('tl'); fit(c); const x = c.getContext('2d'), w = c.width, h = c.height; x.clearRect(0, 0, w, h);
   const xr = w - 36 * dpr, yw = h * 0.44, A = h * 0.28, lane = h * 0.86;
@@ -799,6 +816,12 @@ function drawTimeline(nowMs) {
 
 function loop(nowMs) {
   requestAnimationFrame(loop);
+  if (!$('landing').classList.contains('gone')) {
+    cMx += (tMx - cMx) * 0.12;
+    cMy += (tMy - cMy) * 0.12;
+    unlockEl.style.setProperty('--mx', cMx.toFixed(1) + '%');
+    unlockEl.style.setProperty('--my', cMy.toFixed(1) + '%');
+  }
   if (!$('app').classList.contains('on')) return;
   if (beat.on && nowMs >= beat.at) {
     flashAt = nowMs; Snd.beat();
