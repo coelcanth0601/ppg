@@ -53,7 +53,11 @@
   #bpm.beat { animation:beat .3s ease-out; }
   #hr.low #bpm { color:#363636; animation:none; }
   #pm { font-size:20px; font-weight:300; color:#666; min-width:48px; transition:color .6s, opacity .6s; }
-  #hr.hide #bpm, #hr.hide #pm { opacity:0; }
+  #hr.hide #bpm, #hr.hide #pm, #hr.hide #hrv { opacity:0; }
+  #hrv { display:flex; align-items:baseline; gap:9px; margin-left:48px; transition:opacity .6s ease; }
+  #hrv b { font-size:clamp(30px,5.2vh,58px); font-weight:200; line-height:1; font-variant-numeric:tabular-nums; min-width:2ch; text-align:right; transition:color .6s ease; }
+  #hrv span { font-size:12px; letter-spacing:.16em; color:#666; }
+  #hrv.low b, #hr.low #hrv b { color:#363636; }
   #hr.low #pm { color:#333; }
   #qbar { position:absolute; bottom:0; left:50%; height:1px; width:0; transform:translateX(-50%); background:#ff4d5e;
     transition:width .7s ease, background .7s ease; }
@@ -85,7 +89,7 @@
     <div class="left"><canvas id="face" width="480" height="560"></canvas><div id="msg"></div></div>
     <div class="right"><canvas id="tl"></canvas><canvas id="hist"></canvas></div>
   </main>
-  <div id="hr" class="low"><div id="bpm">--</div><div id="pm"></div><i id="qbar"></i></div>
+  <div id="hr" class="low"><div id="bpm">--</div><div id="pm"></div><div id="hrv" class="low"><b id="rmssd">--</b><span>ms hrv</span></div><i id="qbar"></i></div>
   <div></div>
 </div>
 <video id="video" playsinline muted></video>
@@ -102,6 +106,24 @@ if (matchMedia('(pointer: coarse)').matches || innerWidth < 800) {
 /* ---------- Signal engine ---------- */
 const MIN_Q = 0.35;   // below this signal quality the heart rate is greyed out
 
+function fft(re, im) {          // in-place radix-2 FFT
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang), half = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < half; k++) {
+        const a = i + k, b = a + half, tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+        const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+      }
+    }
+  }
+}
 // Zero-phase band-pass (two Butterworth-style biquads, run forward and backward)
 function biquad(type, f0, fs) {
   const w = 2 * Math.PI * f0 / fs, c = Math.cos(w), al = Math.sin(w) / (2 * Math.SQRT1_2);
@@ -116,8 +138,8 @@ function runBiquad(k, x) {
   }
   return y;
 }
-function filtfilt(k, x) {
-  const n = x.length, P = Math.min(n - 1, 90), z = new Float64Array(n + 2 * P);
+function filtfilt(k, x, fs) {
+  const n = x.length, P = Math.min(n - 1, Math.round(3 * fs)), z = new Float64Array(n + 2 * P);
   for (let i = 0; i < P; i++) { z[i] = 2 * x[0] - x[P - i]; z[n + P + i] = 2 * x[n - 1] - x[n - 2 - i]; }
   z.set(x, P);
   let y = runBiquad(k, z); y.reverse(); y = runBiquad(k, y); y.reverse();
@@ -125,17 +147,17 @@ function filtfilt(k, x) {
 }
 function bandpass(x, fs, lo = 0.6, hi = 3.3) {
   let m = 0; for (const v of x) m += v; m /= x.length;
-  const y = filtfilt(biquad('hp', lo, fs), Float64Array.from(x, v => v - m));
-  return filtfilt(biquad('lp', hi, fs), y);
+  const y = filtfilt(biquad('hp', lo, fs), Float64Array.from(x, v => v - m), fs);
+  return filtfilt(biquad('lp', hi, fs), y, fs);
 }
 
 class Engine {
-  constructor(win = 15, min = 8) { this.win = win; this.min = min; this.reset(); }
-  reset() { this.t = []; this.r = []; this.g = []; this.b = []; this.sm = 0; }
-  add(ts, r, g, b) {
-    this.t.push(ts); this.r.push(r); this.g.push(g); this.b.push(b);
+  constructor(win = 20, min = 10) { this.win = win; this.min = min; this.fs = 30; this.reset(); }
+  reset() { this.t = []; this.c = [0, 1, 2].map(() => [[], [], []]); this.sm = 0; }   // c[roi][channel]
+  add(ts, v) {                       // v = [[r,g,b] forehead, [r,g,b] left cheek, [r,g,b] right cheek]
+    this.t.push(ts); for (let k = 0; k < 3; k++) for (let ch = 0; ch < 3; ch++) this.c[k][ch].push(v[k][ch]);
     while (this.t.length > 1 && ts - this.t[0] > this.win) {
-      this.t.shift(); this.r.shift(); this.g.shift(); this.b.shift();
+      this.t.shift(); for (let k = 0; k < 3; k++) for (let ch = 0; ch < 3; ch++) this.c[k][ch].shift();
     }
   }
   resample(v, n, fs) {
@@ -148,58 +170,66 @@ class Engine {
     }
     return out;
   }
-  std(a) { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length); }
-  pos(R, G, B, fs) {            // Wang et al. 2017, Plane-Orthogonal-to-Skin
+  std(a) { let m = 0; for (const v of a) m += v; m /= a.length; let s = 0; for (const v of a) s += (v - m) * (v - m); return Math.sqrt(s / a.length); }
+  pos(R, G, B, fs) {            // Wang et al. 2017, Plane-Orthogonal-to-Skin (window statistics from prefix sums)
     const n = R.length, L = Math.floor(1.6 * fs), h = new Float64Array(n);
-    for (let s = 0; s <= n - L; s++) {
-      let mr = 0, mg = 0, mb = 0;
-      for (let i = s; i < s + L; i++) { mr += R[i]; mg += G[i]; mb += B[i]; }
-      mr /= L; mg /= L; mb /= L;
-      const s1 = new Float64Array(L), s2 = new Float64Array(L);
-      for (let i = 0; i < L; i++) {
-        const rn = R[s + i] / mr, gn = G[s + i] / mg, bn = B[s + i] / mb;
-        s1[i] = gn - bn; s2[i] = gn + bn - 2 * rn;
-      }
-      const al = this.std(s1) / (this.std(s2) + 1e-9);
-      const seg = s1.map((v, i) => v + al * s2[i]);
-      const m = seg.reduce((x, y) => x + y, 0) / L;
-      for (let i = 0; i < L; i++) h[s + i] += seg[i] - m;
+    if (n < L + 1) return h;
+    const S = () => new Float64Array(n + 1), pr = S(), pg = S(), pb = S(), prr = S(), pgg = S(), pbb = S(), prg = S(), prb = S(), pgb = S();
+    for (let i = 0; i < n; i++) {
+      pr[i + 1] = pr[i] + R[i]; pg[i + 1] = pg[i] + G[i]; pb[i + 1] = pb[i] + B[i];
+      prr[i + 1] = prr[i] + R[i] * R[i]; pgg[i + 1] = pgg[i] + G[i] * G[i]; pbb[i + 1] = pbb[i] + B[i] * B[i];
+      prg[i + 1] = prg[i] + R[i] * G[i]; prb[i + 1] = prb[i] + R[i] * B[i]; pgb[i + 1] = pgb[i] + G[i] * B[i];
+    }
+    for (let s = 0; s + L <= n; s++) {
+      const e = s + L, mr = (pr[e] - pr[s]) / L, mg = (pg[e] - pg[s]) / L, mb = (pb[e] - pb[s]) / L;
+      const Vr = ((prr[e] - prr[s]) / L - mr * mr) / (mr * mr), Vg = ((pgg[e] - pgg[s]) / L - mg * mg) / (mg * mg), Vb = ((pbb[e] - pbb[s]) / L - mb * mb) / (mb * mb);
+      const Crg = ((prg[e] - prg[s]) / L - mr * mg) / (mr * mg), Crb = ((prb[e] - prb[s]) / L - mr * mb) / (mr * mb), Cgb = ((pgb[e] - pgb[s]) / L - mg * mb) / (mg * mb);
+      const v1 = Vg + Vb - 2 * Cgb, v2 = Vg + Vb + 4 * Vr + 2 * Cgb - 4 * Crg - 4 * Crb;     // variances of (g-b) and (g+b-2r), normalised
+      const al = Math.sqrt(Math.max(v1, 0)) / (Math.sqrt(Math.max(v2, 0)) + 1e-9);
+      const cG = (1 + al) / mg, cB = (al - 1) / mb, cR = -2 * al / mr;                     // s1 + al*s2 as one linear combination (zero mean)
+      for (let i = s; i < e; i++) h[i] += cR * R[i] + cG * G[i] + cB * B[i];
     }
     return h;
   }
-  spectrum(pulse, fs) {
-    const n = pulse.length, step = 0.01, f0 = 0.7, K = Math.round((3.0 - f0) / step) + 1;
-    const w = pulse.map((v, i) => v * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1))));
-    const freqs = Array.from({ length: K }, (_, k) => f0 + k * step);
-    const power = freqs.map(f => {
-      let re = 0, im = 0; const om = 2 * Math.PI * f / fs;
-      for (let i = 0; i < n; i++) { re += w[i] * Math.cos(om * i); im += w[i] * Math.sin(om * i); }
-      return re * re + im * im;
-    });
-    let pk = 0; power.forEach((p, k) => { if (p > power[pk]) pk = k; });
-    if (freqs[pk] / 2 >= 0.9) {   // a peak at half the frequency that is nearly as strong means the main peak is a harmonic
-      const kh = Math.round((freqs[pk] / 2 - f0) / step); let best = kh;
-      for (let k = Math.max(0, kh - 5); k <= Math.min(K - 1, kh + 5); k++) if (power[k] > power[best]) best = k;
-      if (power[best] > 0.6 * power[pk]) pk = best;
+  spectrum(pulse, fs, prior) {      // zero-padded FFT; prior = previous BPM (0 for none)
+    const n = pulse.length, N = fs > 45 ? 8192 : 4096, re = new Float64Array(N), im = new Float64Array(N);
+    for (let i = 0; i < n; i++) re[i] = pulse[i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)));
+    fft(re, im);
+    const df = fs / N, kLo = Math.ceil(0.7 / df), kHi = Math.floor(3.0 / df), pw = k => re[k] * re[k] + im[k] * im[k];
+    const P = new Float64Array(kHi + 2); let pk = kLo, tot = 0;
+    for (let k = kLo; k <= kHi; k++) { P[k] = pw(k); tot += P[k]; if (P[k] > P[pk]) pk = k; }
+    if (pk * df / 2 >= 0.9) {       // a peak at half the frequency that is nearly as strong means the main peak is a harmonic
+      const kh = Math.round(pk * df / 2 / df), w = Math.round(0.05 / df); let best = kh;
+      for (let k = Math.max(kLo, kh - w); k <= Math.min(kHi, kh + w); k++) if (P[k] > P[best]) best = k;
+      if (P[best] > 0.6 * P[pk]) pk = best;
     }
-    let f = freqs[pk];
-    if (pk > 0 && pk < K - 1) {   // parabolic refinement of the peak
-      const a = power[pk - 1], b = power[pk], c = power[pk + 1], d = a - 2 * b + c;
-      if (d < 0) f += 0.5 * (a - c) / d * step;
+    if (prior > 0) {                // stay near the previous estimate unless something else clearly dominates
+      const kp = Math.round(prior / 60 / df), w = Math.round(12 / 60 / df); let best = -1;
+      for (let k = Math.max(kLo, kp - w); k <= Math.min(kHi, kp + w); k++) if (best < 0 || P[k] > P[best]) best = k;
+      if (best >= 0 && P[best] >= 0.5 * P[pk]) pk = best;
     }
-    let tot = 0, sig = 0;
-    for (let k = 0; k < K; k++) { tot += power[k]; if (Math.abs(freqs[k] - f) <= 0.1) sig += power[k]; }
+    let f = pk * df;
+    const a = pw(pk - 1), b = pw(pk), c = pw(pk + 1), d = a - 2 * b + c;     // parabolic refinement
+    if (d < 0) f += 0.5 * (a - c) / d * df;
+    let sig = 0; for (let k = kLo; k <= kHi; k++) if (Math.abs(k * df - f) <= 0.1) sig += P[k];
     return { bpm: f * 60, quality: tot > 0 ? Math.min(1, sig / tot) : 0 };   // pure noise scores ~25%
   }
-  pulseData() {     // band-passed pulse signal for the current window
-    if (this.t.length < 2 || this.t.at(-1) - this.t[0] < this.min) return null;
-    const fs = 30, n = Math.floor((this.t.at(-1) - this.t[0]) * fs);
-    const R = this.resample(this.r, n, fs), G = this.resample(this.g, n, fs), B = this.resample(this.b, n, fs);
-    return { pulse: bandpass(this.pos(R, G, B, fs), fs), t0: this.t[0], fs };
+  pulseData(minSec) {     // POS on forehead and each cheek, band-passed, fused by each patch's own signal quality
+    const T = this.t, ms = minSec === undefined ? this.min : minSec;
+    if (T.length < 2 || T.at(-1) - T[0] < ms) return null;
+    const fs = this.fs, n = Math.floor((T.at(-1) - T[0]) * fs);
+    const per = [0, 1, 2].map(k => {
+      const [r, g, b] = this.c[k].map(ch => this.resample(ch, n, fs));
+      const p = bandpass(this.pos(r, g, b, fs), fs);
+      return { p, sd: this.std(p) || 1, q: this.spectrum(p, fs, 0).quality };
+    });
+    const ws = per.map(o => Math.max(o.q - 0.15, 0.02) ** 2), sw = ws[0] + ws[1] + ws[2], pulse = new Float64Array(n);
+    per.forEach((o, k) => { const w = ws[k] / sw / o.sd; for (let i = 0; i < n; i++) pulse[i] += w * o.p[i]; });
+    return { pulse, per: per.map(o => o.p), t0: T[0], fs, qs: per.map(o => o.q) };
   }
   estimate() {
     const pd = this.pulseData(); if (!pd) return null;
-    const fs = pd.fs, pulse = pd.pulse, n = pulse.length, sp = this.spectrum(pulse, fs);
+    const fs = pd.fs, pulse = pd.pulse, n = pulse.length, sp = this.spectrum(pulse, fs, this.sm);
     if (sp.quality >= MIN_Q) {   // displayed value moves at most 3 BPM per second
       if (this.sm === 0) this.sm = sp.bpm;
       else { const d = sp.bpm - this.sm; if (Math.abs(d) < 30 || sp.quality > 0.6) this.sm += Math.max(-3, Math.min(3, d * 0.4)); }
@@ -207,25 +237,94 @@ class Engine {
     // spectral resolution of the window (60/T BPM) shrinks with signal-to-noise; plus a 2 BPM real-world floor
     const T = n / fs, snr = sp.quality / Math.max(1 - sp.quality, 0.02);
     const sigma = Math.sqrt(((60 / T) / Math.sqrt(Math.max(snr, 0.25))) ** 2 + 4);
-    return { bpm: this.sm > 0 ? this.sm : sp.bpm, raw: sp.bpm, quality: sp.quality, sigma, pulse, t0: pd.t0 };
+    return { bpm: this.sm > 0 ? this.sm : sp.bpm, raw: sp.bpm, quality: sp.quality, sigma, pulse, per: pd.per, t0: pd.t0, fs };
   }
 }
 
-// Heartbeats = peaks of the band-passed pulse. The first 0.6 s and last 0.5 s of a window are skipped (filter edge effects).
-function detectBeats(pd, bpm) {
-  const { pulse: p, t0, fs } = pd, tEnd = t0 + (p.length - 1) / fs; let mx = 0;
-  for (const v of p) mx = Math.max(mx, Math.abs(v));
-  const lo = t0 + 0.6, hi = tEnd - 0.5, gap = Math.max(0.3, 0.65 * 60 / bpm), found = [];
-  if (!mx) return { found, lo, hi, mx: 1 };
-  for (let i = 2; i < p.length - 2; i++) {
+/* ---------- Heartbeats and HRV ---------- */
+const HRV_WIN = 60, HRV_DEBIAS = true, RHO_MIN = 0.75, HRV_FLOOR_MAX = 45;   // HRV is only shown when measured beat-timing noise is small enough   // HRV looks at the last 60 s of beats
+const parab = (p, i) => { const d = p[i - 1] - 2 * p[i] + p[i + 1]; return d < 0 ? 0.5 * (p[i - 1] - p[i + 1]) / d : 0; };
+
+// Heartbeats = peaks of the fused pulse. Candidates are found first, then every beat is aligned (sub-sample, by cross-correlation
+// with the average beat shape) in the fused pulse AND in each of the three patches' own pulses. The beat time is the mean of the
+// patches' times, and how much the patches disagree gives a measured timing-noise figure (used to correct HRV).
+function alignBeats(p, cand, fs, a, m) {
+  const n = p.length, J = 2 * a + 1, T = new Float64Array(J); let used = 0;
+  for (const i of cand) { if (i - a < 0 || i + a >= n) continue; for (let j = 0; j < J; j++) T[j] += p[i - a + j]; used++; }
+  if (used < 4) return null;
+  let tm = 0; for (let j = 0; j < J; j++) { T[j] /= used; tm += T[j]; } tm /= J;
+  let TT = 0; for (let j = 0; j < J; j++) { T[j] -= tm; TT += T[j] * T[j]; }
+  return cand.map(i => {
+    if (i - a - m < 0 || i + a + m >= n) return null;
+    const c = new Float64Array(2 * m + 1); let bi = 0;
+    for (let l = -m; l <= m; l++) { let s = 0; const base = i + l - a; for (let j = 0; j < J; j++) s += T[j] * p[base + j]; c[l + m] = s; if (c[l + m] > c[bi]) bi = l + m; }
+    let dl = 0; if (bi > 0 && bi < 2 * m) { const d = c[bi - 1] - 2 * c[bi] + c[bi + 1]; if (d < 0) dl = 0.5 * (c[bi - 1] - c[bi + 1]) / d; }
+    const base = i + (bi - m) - a; let e2 = 0; for (let j = 0; j < J; j++) e2 += p[base + j] * p[base + j];
+    return { lag: bi - m + dl, rho: c[bi] / (Math.sqrt(TT * e2) + 1e-30), amp: c[bi] / TT };
+  });
+}
+function findBeats(pd, bpm) {
+  const { pulse: p, t0, fs } = pd, n = p.length, tEnd = t0 + (n - 1) / fs; let mx = 0;
+  for (let i = 0; i < n; i++) mx = Math.max(mx, Math.abs(p[i]));
+  const lo = t0 + 0.8, hi = tEnd - 0.5, gap = Math.max(0.3, 0.65 * 60 / bpm), cand = [], out = { found: [], lo, hi, jit: 0.03 };
+  if (!mx) return out;
+  for (let i = 2; i < n - 2; i++) {
     const t = t0 + i / fs; if (t < lo || t > hi) continue;
     if (p[i] > p[i - 1] && p[i] >= p[i + 1] && p[i] > 0.3 * mx) {
-      const prev = found[found.length - 1];
-      if (prev && t - prev.t < gap) { if (p[i] / mx > prev.a) found[found.length - 1] = { t, a: p[i] / mx }; }
-      else found.push({ t, a: p[i] / mx });
+      const prev = cand[cand.length - 1];
+      if (prev !== undefined && (i - prev) / fs < gap) { if (p[i] > p[prev]) cand[cand.length - 1] = i; } else cand.push(i);
     }
   }
-  return { found, lo, hi, mx };
+  const a = Math.round(0.30 * fs), m = Math.round(0.12 * fs), sigs = [p].concat(pd.per || []);
+  const al = sigs.map(sg => alignBeats(sg, cand, fs, a, m));
+  if (!al[0]) { out.found = cand.map(i => ({ t: t0 + (i + parab(p, i)) / fs, a: Math.min(1, p[i] / mx) })); return out; }
+  const found = []; let vsum = 0, vn = 0;
+  cand.forEach((i, ci) => {
+    const f = al[0][ci]; if (!f || f.rho < RHO_MIN || f.amp < 0.3) return;      // too noisy to trust its timing
+    const lags = []; for (let k = 1; k < al.length; k++) { const r = al[k] && al[k][ci]; if (r && r.rho >= 0.5) lags.push(r.lag); }
+    let lag = f.lag;
+    if (lags.length >= 2) {
+      lag = lags.reduce((u, x) => u + x, 0) / lags.length;
+      let v = 0; for (const x of lags) v += (x - lag) * (x - lag); v /= lags.length - 1;
+      vsum += v / lags.length; vn++;                                              // variance of the mean of the patches' times
+    }
+    found.push({ t: t0 + (i + lag) / fs, a: Math.min(1, Math.max(0.05, p[i] / mx)), rho: f.rho });
+  });
+  if (vn >= 5) out.jit = Math.sqrt(vsum / vn) / fs;                              // seconds
+  found.sort((x, y) => x.t - y.t);
+  out.found = found.filter((b, k) => k === 0 || b.t - found[k - 1].t >= 0.5 * gap);
+  return out;
+}
+function mergeBeats(arr, found, lo, hi, keepFrom, jit) {
+  const keep = arr.filter(b => (b.t < lo || b.t > hi) && b.t >= keepFrom);
+  const all = keep.concat(found.map(b => ({ t: b.t, a: b.a, jit }))).sort((x, y) => x.t - y.t), out = [];
+  for (const b of all) {      // refined times can land a hair away from an older copy of the same beat
+    const l = out[out.length - 1];
+    if (l && b.t - l.t < 0.33) { if (b.a > l.a) out[out.length - 1] = b; } else out.push(b);
+  }
+  return out;
+}
+// Intervals between consecutive beats; implausible or outlying ones (Malik 20% rule vs. the local median) are marked invalid
+function cleanIbis(beats) {
+  const iv = []; for (let i = 1; i < beats.length; i++) iv.push({ t: beats[i].t, d: beats[i].t - beats[i - 1].t, jit: beats[i].jit || 0 });
+  iv.forEach((x, k) => {
+    const nb = iv.slice(Math.max(0, k - 4), k + 5).map(y => y.d).sort((u, v) => u - v), med = nb[nb.length >> 1];
+    x.ok = x.d >= 0.33 && x.d <= 1.6 && Math.abs(x.d - med) <= 0.2 * med;
+  });
+  return iv;
+}
+function computeHRV(beats, tNow) {
+  const iv = cleanIbis(beats.filter(b => b.t > tNow - HRV_WIN - 1)).filter(x => x.t > tNow - HRV_WIN);
+  const good = iv.filter(x => x.ok); if (good.length < 12) return null;
+  let s2 = 0, nd = 0, jit2 = 0;
+  for (let k = 1; k < iv.length; k++) if (iv[k].ok && iv[k - 1].ok) { const d = iv[k].d - iv[k - 1].d; s2 += d * d; nd++; }
+  if (nd < 8) return null;
+  for (const x of good) jit2 += x.jit * x.jit; jit2 /= good.length;
+  const cover = good.length / (HRV_WIN / (good.reduce((u, x) => u + x.d, 0) / good.length));   // share of the window with usable beats
+  const raw = Math.sqrt(s2 / nd) * 1000, floor = Math.sqrt(6 * jit2) * 1000;       // successive differences carry 6x the timing variance
+  const rmssd = HRV_DEBIAS ? Math.sqrt(Math.max(raw * raw - floor * floor, 0)) : raw;
+  const mean = good.reduce((u, x) => u + x.d, 0) / good.length, sdnn = Math.sqrt(good.reduce((u, x) => u + (x.d - mean) ** 2, 0) / good.length) * 1000;
+  return { rmssd, raw, floor, sdnn, n: good.length, frac: Math.min(1, cover), hr: 60 / mean };
 }
 
 /* ---------- Sound (all synthesised) ---------- */
@@ -312,6 +411,7 @@ const sbins = [new Float32Array(64), new Float32Array(64), new Float32Array(64)]
 let stream = null, track = null, running = false, gen = 0, detector = null, loadingDet = null;
 let lastDet = 0, detEvery = 500, target = null, cur = null, noFaceSince = null, lostReset = false;
 let frame = 0, lastTs = 0, lastUi = 0, lastPulse = 0, useCap = null, prevLum = null, flagUntil = 0, mv = [];
+let fsSet = false, dts = [], prevRawTs = 0, streak = 0;
 let clk = null, beatsT = [], tlPulse = null, tlMx = 1, flashAt = -1e9, wasOk = false, hrHidden = false, curOk = false, curBpm = 60;
 const beat = { on: false, at: 0, per: 800 }, rows = [], rawRows = [];
 const TL_WIN = 20;   // seconds shown on the beat timeline
@@ -358,9 +458,9 @@ function updateBox(now, ts, W, H) {
 }
 function faceRois(b, W, H) {      // forehead + both cheeks
   const raw = [
-    [b.x + b.w * 0.30, b.y + b.h * (b.det ? -0.12 : 0.02), b.w * 0.40, b.h * 0.16],
-    [b.x + b.w * 0.12, b.y + b.h * 0.52, b.w * 0.24, b.h * 0.14],
-    [b.x + b.w * 0.64, b.y + b.h * 0.52, b.w * 0.24, b.h * 0.14],
+    [b.x + b.w * 0.28, b.y + b.h * (b.det ? -0.13 : 0.02), b.w * 0.44, b.h * 0.17],
+    [b.x + b.w * 0.11, b.y + b.h * 0.51, b.w * 0.26, b.h * 0.16],
+    [b.x + b.w * 0.63, b.y + b.h * 0.51, b.w * 0.26, b.h * 0.16],
   ];
   return raw.map(r => {
     let [x, y, w, h] = r.map(Math.floor);
@@ -373,10 +473,12 @@ function sampleRoi(x, y, w, h) {   // mean RGB of skin pixels (darker hair/brow 
   for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
   const lim = 0.65 * s / n; let r = 0, g = 0, b = 0, c = 0;
   for (let i = 0; i < d.length; i += 4) {
-    if (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < lim) continue;
+    if (d[i] > 249 || d[i + 1] > 249 || d[i + 2] > 249) continue;                              // clipped highlights carry no pulse
+    if (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < lim) continue;                    // hair, brows, shadows
     r += d[i]; g += d[i + 1]; b += d[i + 2]; c++;
     bins[0][d[i] >> 2]++; bins[1][d[i + 1] >> 2]++; bins[2][d[i + 2] >> 2]++;
   }
+  if (!c) return [s / n, s / n, s / n];
   return [r / c, g / c, b / c];
 }
 async function lockCamera(tr) {     // freeze auto exposure / white balance where the browser allows it
@@ -394,7 +496,7 @@ async function lockCamera(tr) {     // freeze auto exposure / white balance wher
 async function startCamera() {
   if (running) return;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } }, audio: false });
   } catch (e) { $('msg').textContent = 'camera blocked'; return; }
   video.srcObject = stream; await video.play();
   work.width = 480; work.height = Math.round(480 * video.videoHeight / video.videoWidth);
@@ -413,12 +515,17 @@ function setHidden(v) {      // hide the number (face gone, or an implausible ra
   if (v === hrHidden) return; hrHidden = v; $('hr').classList.toggle('hide', v);
   if (v) { $('qbar').style.width = '0px'; beat.on = false; wasOk = false; curOk = false; }
 }
-function resetSignal() { engine.reset(); prevLum = null; beatsT = []; tlPulse = null; beat.on = false; wasOk = false; curOk = false; }
+function resetSignal() { engine.reset(); prevLum = null; tlPulse = null; beat.on = false; wasOk = false; curOk = false; streak = 0; }   // old beats are kept: HRV simply sees a gap
 
 function onFrame(now, meta) {
   if (useCap === null) useCap = typeof meta.captureTime === 'number';
   const ts = (useCap ? meta.captureTime : now) / 1000;
-  if (ts - lastTs < 0.028) return;
+  if (!fsSet && prevRawTs) {          // measure the camera's real frame rate once: 60 fps cameras get a 60 Hz pipeline
+    dts.push(ts - prevRawTs);
+    if (dts.length >= 45) { dts.sort((a, b) => a - b); const md = dts[dts.length >> 1]; engine.fs = md > 0 && 1 / md > 48 ? 60 : 30; engine.reset(); fsSet = true; }
+  }
+  prevRawTs = ts;
+  if (ts - lastTs < 0.012) return;
   lastTs = ts; frame++; clk = { ts, wall: performance.now() };
   const W = work.width, H = work.height;
   wctx.drawImage(video, 0, 0, W, H);
@@ -438,7 +545,7 @@ function onFrame(now, meta) {
   if (d > 0.35) resetSignal();
   const lum = 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2];   // a heartbeat moves brightness ~1%; big jumps are artifacts
   if (prevLum !== null) { const j = Math.abs(lum - prevLum) / prevLum; if (j > 0.10) { resetSignal(); flagUntil = ts + 2; } else if (j > 0.04) flagUntil = ts + 2; }
-  prevLum = lum; engine.add(ts, ...m);
+  prevLum = lum; engine.add(ts, ms);
   rawRows.push({ t: ts.toFixed(3), r: m[0].toFixed(2), g: m[1].toFixed(2), b: m[2].toFixed(2) });
   if (rawRows.length > 30000) rawRows.splice(0, 3000);
   drawPreview(rois);
@@ -453,25 +560,32 @@ function onFrame(now, meta) {
 }
 function handleEstimate(res, ts) {
   const moving = ts < flagUntil, bpm = Math.round(res.bpm), plausible = bpm >= 50;   // 40s are hidden
-  const ok = res.quality >= MIN_Q && !moving && plausible;
+  streak = res.quality >= MIN_Q ? streak + 1 : 0;                                    // a good signal must hold for 2 readings in a row
+  const pdx = { pulse: res.pulse, per: res.per, t0: res.t0, fs: res.fs }, fb = findBeats(pdx, res.bpm);
+  const cover = fb.found.length / (((fb.hi - fb.lo) * res.bpm / 60) || 1);          // share of expected beats that were actually found
+  const ok = streak >= 2 && cover >= 0.5 && !moving && plausible;
   setHidden(!plausible);
   $('hr').classList.toggle('low', !ok);
   $('bpm').textContent = bpm; $('pm').textContent = '±' + Math.max(2, Math.round(res.sigma));
   if (!hrHidden) { $('qbar').style.width = Math.round(res.quality * 320) + 'px'; $('qbar').style.background = ok ? '#ff4d5e' : '#333'; }
   if (ok && !wasOk) Snd.lock();
   wasOk = ok; curOk = ok; curBpm = res.bpm;
-  updateBeats({ pulse: res.pulse, t0: res.t0, fs: 30 }, res.bpm, ok);
+  const tEnd = res.t0 + (res.pulse.length - 1) / res.fs;
+  updateBeats(pdx, res.bpm, ok, fb);
   if (ok) planFromBeats(res.bpm); else beat.on = false;
-  rows.push({ time: new Date().toISOString(), bpm, raw_bpm: res.raw.toFixed(1), signal_pct: Math.round(res.quality * 100), plus_minus: res.sigma.toFixed(1), greyed: ok ? 0 : 1, hidden: hrHidden ? 1 : 0 });
+  const h = computeHRV(beatsT, tEnd), hrvOk = !!h && ok && h.floor <= HRV_FLOOR_MAX && h.frac >= 0.6 && h.n >= 25;   // only trusted when beat timing is clean
+  $('rmssd').textContent = h ? Math.round(h.rmssd) : '--'; $('hrv').classList.toggle('low', !hrvOk);
+  rows.push({ time: new Date().toISOString(), bpm, raw_bpm: res.raw.toFixed(1), signal_pct: Math.round(res.quality * 100), plus_minus: res.sigma.toFixed(1),
+    greyed: ok ? 0 : 1, hidden: hrHidden ? 1 : 0, fps: res.fs, rmssd_ms: h ? h.rmssd.toFixed(1) : '', rmssd_raw_ms: h ? h.raw.toFixed(1) : '', timing_noise_ms: h ? (h.floor / Math.sqrt(6)).toFixed(1) : '',
+    sdnn_ms: h ? h.sdnn.toFixed(1) : '', beats_used: h ? h.n : 0, hrv_trusted: hrvOk ? 1 : 0 });
 }
-function updateBeats(pd, bpm, ok) {
+function updateBeats(pd, bpm, ok, fb) {
   tlPulse = pd;
   let mx = 0; for (const v of pd.pulse) mx = Math.max(mx, Math.abs(v));
   tlMx = tlMx === 1 ? (mx || 1) : tlMx * 0.6 + (mx || tlMx) * 0.4;
   if (!ok) return;                                   // never mark beats on a noisy signal
-  const { found, lo, hi } = detectBeats(pd, bpm), tEnd = pd.t0 + (pd.pulse.length - 1) / pd.fs;
-  beatsT = beatsT.filter(b => b.t < lo || b.t > hi).concat(found).sort((a, b) => a.t - b.t);
-  while (beatsT.length && beatsT[0].t < tEnd - TL_WIN - 5) beatsT.shift();
+  const f = fb || findBeats(pd, bpm), tEnd = pd.t0 + (pd.pulse.length - 1) / pd.fs;
+  beatsT = mergeBeats(beatsT, f.found, f.lo, f.hi, tEnd - HRV_WIN - 20, f.jit);
 }
 function planFromBeats(bpm) {    // time the number pulse and sound to the next beat after the last detected one
   if (!beatsT.length || !clk) { beat.on = false; return; }
@@ -569,7 +683,7 @@ function loop(nowMs) {
   drawTimeline(nowMs); drawHist();
 }
 
-/* ---------- Keys: M mute, E readings CSV, R raw CSV ---------- */
+/* ---------- Keys: M mute, E readings CSV, R raw CSV, I beat intervals CSV ---------- */
 function toCsv(list) { const cols = Object.keys(list[0] || {}); return cols.join(',') + '\n' + list.map(r => cols.map(c => r[c]).join(',')).join('\n'); }
 function download(name, list) {
   if (!list.length) return;
@@ -584,6 +698,7 @@ addEventListener('keydown', e => {
   if (!$('app').classList.contains('on')) return;
   const k = e.key.toLowerCase();
   if (k === 'm') Snd.toggle(); else if (k === 'e') download('rppg-readings.csv', rows); else if (k === 'r') download('rppg-raw-rgb.csv', rawRows);
+  else if (k === 'i') download('rppg-beat-intervals.csv', cleanIbis(beatsT).map(x => ({ beat_time_s: x.t.toFixed(3), interval_ms: (x.d * 1000).toFixed(1), valid: x.ok ? 1 : 0 })));
 });
 
 requestAnimationFrame(loop);
