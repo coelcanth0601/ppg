@@ -15,18 +15,12 @@
   #landing { position:fixed; inset:0; background:#000; display:flex; align-items:center; justify-content:center;
     transition:opacity .7s ease, visibility .7s; z-index:10; }
   #landing.gone { opacity:0; visibility:hidden; pointer-events:none; }
-  #unlock { all:unset; cursor:pointer; font:200 clamp(56px,11vw,170px)/1.08 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    letter-spacing:-.03em; padding:16px 28px;
-    --mx:50%; --my:50%; --ang:125deg;
-    background-image:
-      radial-gradient(circle 280px at var(--mx) var(--my), #ffffff 0%, #6495ed 42%, transparent 78%),
-      linear-gradient(var(--ang), #444 0%, #999 25%, #1344a4 50%, #6495ed 75%, #444 100%);
-    background-size:100% 100%, 260% 260%;
-    -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
-    transition:letter-spacing .6s cubic-bezier(.2,.8,.2,1), transform .25s ease, filter .3s ease;
-    animation:rise 1s cubic-bezier(.2,.8,.2,1) both, gradFlow 7s ease-in-out infinite; }
-  #unlock:hover { letter-spacing:.03em; filter:drop-shadow(0 0 32px rgba(255,77,94,.28)); }
-  #unlock:active { transform:scale(.97); opacity:.8; }
+  #sky { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+  #unlock { all:unset; position:relative; z-index:1; cursor:pointer; color:#000; font:200 clamp(56px,11vw,170px)/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    letter-spacing:-.03em; transition:letter-spacing .6s cubic-bezier(.2,.8,.2,1), transform .2s, opacity .3s;
+    animation:rise 1s cubic-bezier(.2,.8,.2,1) both; }
+  #unlock:hover { letter-spacing:.03em; }
+  #unlock:active { transform:scale(.97); opacity:.7; }
 
   /* keypad */
   #pad { position:fixed; inset:0; background:#000; z-index:20; display:flex; flex-direction:column; align-items:center;
@@ -44,33 +38,6 @@
   .k:hover { background:#101010; border-color:#555; }
   .k:active { transform:scale(.91); background:#1c1c1c; }
 
-  /* minimalist setup guide */
-  #guide { position:fixed; inset:0; background:#000; z-index:18; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:44px; opacity:0; visibility:hidden;
-    transition:opacity .65s ease, visibility .65s; padding:32px; }
-  #guide.on { opacity:1; visibility:visible; }
-  .cards { display:grid; grid-template-columns:repeat(3, minmax(200px, 240px)); gap:22px; max-width:780px; width:100%; }
-  .card { background:#060606; border:1px solid #181818; border-radius:20px; padding:28px 22px 24px;
-    display:flex; flex-direction:column; align-items:center; text-align:center;
-    transition:border-color .35s ease, transform .35s ease; }
-  .card:hover { border-color:#2c2c2c; transform:translateY(-3px); }
-  .card svg { width:120px; height:96px; margin-bottom:20px; overflow:visible; }
-  .card b { font-size:12px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:#eee; margin-bottom:8px; }
-  .card p { margin:0; font-size:13px; color:#777; line-height:1.5; font-weight:300; }
-
-  /* simple drawing animations */
-  .d-user { animation:slideDist 3.6s ease-in-out infinite; }
-  .d-line { stroke-dasharray:4 4; animation:dashMove 1.5s linear infinite; }
-  .d-wave { animation:waveFade 2.4s ease-in-out infinite; }
-  .d-wave2 { animation:waveFade 2.4s ease-in-out 0.6s infinite; }
-  .d-dot { animation:heartDot 1.6s ease-in-out infinite; transform-origin:60px 48px; }
-
-  #startBtn { border:1px solid #2a2a2a; background:#0a0a0a; color:#eee; padding:14px 42px; border-radius:99px;
-    font-size:12px; letter-spacing:.2em; text-transform:uppercase; cursor:pointer;
-    transition:background .25s, border-color .25s, transform .15s, box-shadow .3s; }
-  #startBtn:hover { background:#121212; border-color:#ff4d5e; box-shadow:0 0 28px rgba(255,77,94,.2); }
-  #startBtn:active { transform:scale(.96); }
-
   /* app */
   #app { position:fixed; inset:0; display:grid; grid-template-rows:minmax(0,1fr) auto 44px; opacity:0; visibility:hidden;
     transition:opacity .9s ease .1s, visibility .9s; }
@@ -78,15 +45,8 @@
   main { display:grid; grid-template-columns:auto minmax(0,1fr); gap:32px; padding:36px 44px 8px; min-height:0; }
   .left { position:relative; min-height:0; height:100%; }
   #face { height:100%; aspect-ratio:6/7; border-radius:20px; background:#0a0a0a; display:block; }
-  #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#555; font-size:13px; letter-spacing:.12em; pointer-events:none; }
-  #warn { position:absolute; top:16px; left:50%; transform:translateX(-50%) translateY(-8px);
-    display:flex; align-items:center; gap:9px; padding:8px 16px; border-radius:99px;
-    background:rgba(12,12,12,.82); border:1px solid rgba(255,77,94,.45); backdrop-filter:blur(10px);
-    color:#ff8a95; font-size:11px; letter-spacing:.13em; text-transform:uppercase; white-space:nowrap;
-    opacity:0; visibility:hidden; transition:opacity .3s ease, transform .3s ease, visibility .3s; pointer-events:none; z-index:5; }
-  #warn.on { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
-  #warn i { width:7px; height:7px; border-radius:50%; background:#ff4d5e; box-shadow:0 0 10px #ff4d5e; animation:blink 1s ease-in-out infinite; }
-  .right { display:grid; grid-template-rows:minmax(0,1fr); min-height:0; }
+  #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#555; font-size:13px; letter-spacing:.12em; }
+  .right { min-height:0; }
   #tl { width:100%; height:100%; display:block; min-height:0; }
   #hr { position:relative; display:flex; align-items:baseline; justify-content:center; gap:16px; padding:6px 0 14px; }
   #bpm { font-size:clamp(72px,14vh,160px); font-weight:200; line-height:1; font-variant-numeric:tabular-nums;
@@ -109,94 +69,112 @@
   #by { position:fixed; left:0; right:0; bottom:0; height:44px; display:flex; align-items:center; justify-content:center;
     font-size:12px; letter-spacing:.16em; color:#555; z-index:15; transition:color .6s, opacity .4s; pointer-events:none; }
   #byt { pointer-events:auto; cursor:pointer; transition:color .3s; padding:8px 14px; }
-  #byt:hover { color:#ddd; }
+  #byt:hover { color:#bbb; }
   body.padon #by { opacity:0; }
   video { position:fixed; right:0; bottom:0; width:2px; height:2px; opacity:.01; pointer-events:none; }
   .block { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:#777; letter-spacing:.14em; font-size:14px; }
 
+  /* face flash (same red as the beat markers) + warnings */
+  #flash { position:absolute; left:0; top:0; border-radius:20px; pointer-events:none; opacity:0;
+    background:radial-gradient(ellipse 58% 52% at 50% 44%, rgba(255,70,90,.9) 0%, rgba(255,70,90,.48) 55%, rgba(255,70,90,0) 100%); }
+  #warn { position:absolute; left:0; right:0; top:14px; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; }
+  .pill { display:flex; align-items:center; gap:9px; padding:7px 14px; border-radius:99px; background:rgba(0,0,0,.62); border:1px solid #ffb02e55;
+    color:#ffd58a; font-size:12px; letter-spacing:.14em; animation:rise .4s ease both; }
+  .pill::before { content:""; width:7px; height:7px; border-radius:50%; background:#ffb02e; animation:blink 1.2s ease-in-out infinite; }
+
+  /* how-to animation */
+  #guide { position:fixed; inset:0; z-index:12; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px;
+    opacity:0; visibility:hidden; transition:opacity .6s ease, visibility .6s; }
+  #guide.on { opacity:1; visibility:visible; }
+  #guide svg { width:min(760px,84vw); height:auto; overflow:visible; }
+  .caps { position:relative; width:min(760px,84vw); height:42px; text-align:center; }
+  .caps span { position:absolute; left:0; right:0; top:0; font-size:clamp(20px,3.2vh,30px); font-weight:200; opacity:0; }
+  .caps span:nth-child(1) { animation:c1 15s infinite; } .caps span:nth-child(2) { animation:c2 15s infinite; } .caps span:nth-child(3) { animation:c3 15s infinite; }
+  .steps { display:flex; gap:10px; margin-top:-8px; }
+  .steps i { width:6px; height:6px; border-radius:50%; background:#333; }
+  .steps i:nth-child(1) { animation:s1 15s infinite; } .steps i:nth-child(2) { animation:s2 15s infinite; } .steps i:nth-child(3) { animation:s3 15s infinite; }
+  #start { margin-top:6px; padding:12px 34px; border-radius:99px; border:1px solid #444; background:none; cursor:pointer; font-size:14px; letter-spacing:.22em;
+    transition:background .3s, color .3s, border-color .3s, transform .15s; animation:rise 1s ease 1.2s both; }
+  #start:hover { background:#fff; color:#000; border-color:#fff; }
+  #start:active { transform:scale(.96); }
+  .person { animation:slide 15s infinite cubic-bezier(.2,.8,.2,1); }
+  .rl { stroke-dasharray:1; stroke-dashoffset:1; animation:draw 15s infinite; }
+  .ruler { animation:fadeAll 15s infinite; }
+  .ruler text { animation:lab 15s infinite; }
+  .beam, .lit { opacity:0; animation:lamp 15s infinite; }
+  .bulb { animation:bulb 15s infinite; }
+  .hb { opacity:0; animation:hbw 15s infinite; }
+  .hb circle { animation:hbp .83s infinite ease-out; }
+  @keyframes blink { 50% { opacity:.35; } }
+  @keyframes slide { 0% { transform:translateX(210px); opacity:0; } 4% { opacity:1; } 30% { transform:translateX(0); } 96% { transform:translateX(0); opacity:1; } 100% { transform:translateX(0); opacity:0; } }
+  @keyframes draw { 0% { stroke-dashoffset:1; } 14%, 100% { stroke-dashoffset:0; } }
+  @keyframes fadeAll { 0% { opacity:0; } 6%, 94% { opacity:1; } 100% { opacity:0; } }
+  @keyframes lab { 0%, 14% { opacity:0; } 22%, 94% { opacity:1; } 100% { opacity:0; } }
+  @keyframes lamp { 0%, 32% { opacity:0; } 38%, 94% { opacity:1; } 100% { opacity:0; } }
+  @keyframes bulb { 0%, 32% { fill:#1a1a1a; } 38%, 94% { fill:#ffe6a8; } 100% { fill:#1a1a1a; } }
+  @keyframes hbw { 0%, 66% { opacity:0; } 68%, 95% { opacity:1; } 98%, 100% { opacity:0; } }
+  @keyframes hbp { 0% { opacity:.6; } 100% { opacity:0; } }
+  @keyframes c1 { 0% { opacity:0; transform:translateY(8px); } 4%, 29% { opacity:1; transform:none; } 33%, 100% { opacity:0; } }
+  @keyframes c2 { 0%, 32% { opacity:0; transform:translateY(8px); } 37%, 62% { opacity:1; transform:none; } 66%, 100% { opacity:0; } }
+  @keyframes c3 { 0%, 65% { opacity:0; transform:translateY(8px); } 70%, 95% { opacity:1; transform:none; } 99%, 100% { opacity:0; } }
+  @keyframes s1 { 0%, 33% { background:#fff; } 34%, 100% { background:#333; } }
+  @keyframes s2 { 0%, 33% { background:#333; } 34%, 66% { background:#fff; } 67%, 100% { background:#333; } }
+  @keyframes s3 { 0%, 66% { background:#333; } 67%, 100% { background:#fff; } }
   @keyframes rise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
-  @keyframes gradFlow { 0%,100% { background-position:0% 0%, 0% 50%; } 50% { background-position:0% 0%, 100% 50%; } }
   @keyframes shake { 0%,100% { transform:none; } 20% { transform:translateX(-12px); } 40% { transform:translateX(10px); }
     60% { transform:translateX(-7px); } 80% { transform:translateX(4px); } }
   @keyframes beat { 0% { transform:scale(1); } 30% { transform:scale(1.035); } 100% { transform:scale(1); } }
-  @keyframes slideDist { 0%,100% { transform:translateX(0); } 50% { transform:translateX(-8px); } }
-  @keyframes dashMove { to { stroke-dashoffset:-16; } }
-  @keyframes waveFade { 0%,100% { opacity:.2; transform:translateX(-2px); } 50% { opacity:.95; transform:translateX(2px); } }
-  @keyframes heartDot { 0%,100% { transform:scale(1); opacity:.85; } 50% { transform:scale(1.35); opacity:1; } }
-  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.35; } }
 </style>
 </head>
 <body>
-<div id="landing"><button id="unlock">/unlock?</button></div>
+<div id="landing"><canvas id="sky"></canvas><button id="unlock">/unlock?</button></div>
 <div id="pad"><div id="dots"><i class="dot"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div id="keys"></div></div>
-
-<div id="guide">
-  <div class="cards">
-    <!-- Card 1: 40cm Distance -->
-    <div class="card">
-      <svg viewBox="0 0 120 96" fill="none">
-        <!-- Minimal webcam on left -->
-        <rect x="10" y="34" width="12" height="28" rx="3" stroke="#777" stroke-width="1.5"/>
-        <circle cx="22" cy="48" r="2.5" fill="#ff4d5e"/>
-        <!-- Animated distance line -->
-        <line class="d-line" x1="30" y1="48" x2="74" y2="48" stroke="#ff4d5e" stroke-width="1.4"/>
-        <text x="52" y="39" fill="#888" font-size="9" text-anchor="middle" letter-spacing="1.5">40 CM</text>
-        <!-- Simple person icon on right -->
-        <g class="d-user">
-          <circle cx="94" cy="40" r="10" stroke="#eee" stroke-width="1.5"/>
-          <path d="M78 68 C78 55 110 55 110 68" stroke="#eee" stroke-width="1.5" stroke-linecap="round"/>
-        </g>
-      </svg>
-      <b>Up to 40 cm</b>
-      <p>Sit comfortably close (~40 cm) directly in front of your camera.</p>
-    </div>
-
-    <!-- Card 2: Front Lighting -->
-    <div class="card">
-      <svg viewBox="0 0 120 96" fill="none">
-        <!-- Simple sun / light icon -->
-        <circle cx="24" cy="48" r="7" stroke="#ff4d5e" stroke-width="1.5"/>
-        <path d="M24 34 V37 M24 59 V62 M10 48 H13 M35 48 H38 M14 38 L16.5 40.5 M31.5 55.5 L34 58 M34 38 L31.5 40.5 M16.5 55.5 L14 58" stroke="#ff4d5e" stroke-width="1.4" stroke-linecap="round"/>
-        <!-- Gentle light waves hitting face -->
-        <path class="d-wave" d="M48 36 A18 18 0 0 1 48 60" stroke="#ff4d5e" stroke-width="1.4" stroke-linecap="round"/>
-        <path class="d-wave2" d="M58 31 A24 24 0 0 1 58 65" stroke="#ff4d5e" stroke-width="1.4" stroke-linecap="round"/>
-        <!-- Face with lit front arc -->
-        <circle cx="88" cy="48" r="14" stroke="#444" stroke-width="1.5"/>
-        <path d="M88 34 A14 14 0 0 0 88 62" stroke="#eee" stroke-width="1.8" stroke-linecap="round"/>
-      </svg>
-      <b>Front Lighting</b>
-      <p>Keep even light facing you. Avoid strong backlighting or dim rooms.</p>
-    </div>
-
-    <!-- Card 3: Stay Still -->
-    <div class="card">
-      <svg viewBox="0 0 120 96" fill="none">
-        <!-- Minimal corner focus brackets -->
-        <path d="M32 32 V22 H42 M78 22 H88 V32 M88 64 V74 H78 M42 74 H32 V64" stroke="#555" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <!-- Centered still face & pulse dot -->
-        <circle cx="60" cy="48" r="15" stroke="#eee" stroke-width="1.5"/>
-        <circle class="d-dot" cx="60" cy="48" r="3.5" fill="#ff4d5e"/>
-      </svg>
-      <b>Stay Still</b>
-      <p>Rest naturally and minimize head movement while measuring.</p>
-    </div>
-  </div>
-  <button id="startBtn">continue</button>
-</div>
-
 <div id="app">
   <main>
-    <div class="left">
-      <canvas id="face" width="480" height="560"></canvas>
-      <div id="warn"><i></i><span id="warnTxt"></span></div>
-      <div id="msg"></div>
-    </div>
+    <div class="left"><canvas id="face" width="480" height="560"></canvas><div id="flash"></div><div id="warn"></div><div id="msg"></div></div>
     <div class="right"><canvas id="tl"></canvas></div>
   </main>
   <div id="hr" class="low"><div id="bpm">--</div><div id="pm"></div><div id="hrv" class="low"><b id="rmssd">--</b><span>ms hrv</span></div><i id="qbar"></i></div>
   <div></div>
 </div>
 <video id="video" playsinline muted></video>
+<div id="guide">
+  <svg viewBox="0 0 640 330" aria-hidden="true">
+    <defs>
+      <linearGradient id="beamg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffe6a8" stop-opacity=".55"/><stop offset="1" stop-color="#ffe6a8" stop-opacity=".06"/></linearGradient>
+      <radialGradient id="faceg" cx=".12" cy=".5" r=".95"><stop offset="0" stop-color="#ffe6a8" stop-opacity=".7"/><stop offset="1" stop-color="#ffe6a8" stop-opacity="0"/></radialGradient>
+    </defs>
+    <line x1="16" y1="262" x2="624" y2="262" stroke="#2a2a2a" stroke-width="2"/>
+    <polygon points="58,98 372,40 372,226" fill="#fff" fill-opacity=".035"/>
+    <g stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+      <rect x="44" y="84" width="13" height="138" rx="4" fill="#0b0b0b"/>
+      <path d="M50 222V262M28 262H72" fill="none"/>
+    </g>
+    <circle cx="57" cy="98" r="3.6" fill="#ff4d5e"/>
+    <g>
+      <path class="beam" d="M180 66 L352 100 L352 150 L186 94 Z" fill="url(#beamg)"/>
+      <path d="M160 100V262M136 262H184" stroke="#777" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path class="bulb" d="M142 74 L178 64 L186 94 L148 102 Z" stroke="#fff" stroke-width="2" fill="#1a1a1a" stroke-linejoin="round"/>
+    </g>
+    <g class="person" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M330 262C330 214 356 192 382 192C408 192 436 214 436 262" fill="#0b0b0b" stroke="#fff" stroke-width="2"/>
+      <path d="M372 154V192M392 154V192" stroke="#fff" stroke-width="2" fill="none"/>
+      <circle cx="382" cy="124" r="34" fill="#0b0b0b" stroke="#fff" stroke-width="2"/>
+      <circle class="lit" cx="382" cy="124" r="34" fill="url(#faceg)"/>
+      <path d="M349 119L338 131L349 137" fill="none" stroke="#fff" stroke-width="2"/>
+      <circle cx="363" cy="116" r="2.4" fill="#fff"/>
+      <g class="hb"><circle cx="382" cy="124" r="34" fill="#ff4d5e"/></g>
+    </g>
+    <g class="ruler" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round">
+      <path class="rl" pathLength="1" d="M58 292H338"/>
+      <path d="M58 284V300M338 284V300"/>
+      <text x="198" y="278" text-anchor="middle" fill="#fff" stroke="none" font-size="20" font-weight="300">40 cm</text>
+    </g>
+  </svg>
+  <div class="caps"><span>sit up to 40 cm from the camera</span><span>light your face from the front</span><span>stay still and keep the light steady</span></div>
+  <div class="steps"><i></i><i></i><i></i></div>
+  <button id="start">start</button>
+</div>
 <footer id="by"><span id="byt">made by Rachit Ranade</span></footer>
 
 <script>
@@ -207,20 +185,8 @@ if (matchMedia('(pointer: coarse)').matches || innerWidth < 800) {
   document.body.innerHTML = '<div class="block">desktop only</div>'; return;
 }
 
-/* ---------- Cursor-reactive gradient on /unlock? ---------- */
-const unlockEl = $('unlock');
-let tMx = 50, tMy = 50, cMx = 50, cMy = 50;
-addEventListener('pointermove', e => {
-  if ($('landing').classList.contains('gone')) return;
-  const r = unlockEl.getBoundingClientRect();
-  tMx = ((e.clientX - r.left) / Math.max(1, r.width)) * 100;
-  tMy = ((e.clientY - r.top) / Math.max(1, r.height)) * 100;
-  const ang = Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI + 90;
-  unlockEl.style.setProperty('--ang', ang.toFixed(1) + 'deg');
-});
-
 /* ---------- Signal engine ---------- */
-const MIN_Q = 0.20;   // lowered to 20% confidence threshold
+const MIN_Q = 0.35;   // below this signal quality the heart rate is greyed out
 
 function fft(re, im) {          // in-place radix-2 FFT
   const n = re.length;
@@ -229,7 +195,7 @@ function fft(re, im) {          // in-place radix-2 FFT
     if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
   }
   for (let len = 2; len <= n; len <<= 1) {
-    const wr = Math.cos(-2 * Math.PI / len), wi = Math.sin(-2 * Math.PI / len), half = len >> 1;
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang), half = len >> 1;
     for (let i = 0; i < n; i += len) {
       let cr = 1, ci = 0;
       for (let k = 0; k < half; k++) {
@@ -269,8 +235,8 @@ function bandpass(x, fs, lo = 0.6, hi = 3.3) {
 
 class Engine {
   constructor(win = 20, min = 10) { this.win = win; this.min = min; this.fs = 30; this.reset(); }
-  reset() { this.t = []; this.c = [0, 1, 2].map(() => [[], [], []]); this.sm = 0; }
-  add(ts, v) {
+  reset() { this.t = []; this.c = [0, 1, 2].map(() => [[], [], []]); this.sm = 0; }   // c[roi][channel]
+  add(ts, v) {                       // v = [[r,g,b] forehead, [r,g,b] left cheek, [r,g,b] right cheek]
     this.t.push(ts); for (let k = 0; k < 3; k++) for (let ch = 0; ch < 3; ch++) this.c[k][ch].push(v[k][ch]);
     while (this.t.length > 1 && ts - this.t[0] > this.win) {
       this.t.shift(); for (let k = 0; k < 3; k++) for (let ch = 0; ch < 3; ch++) this.c[k][ch].shift();
@@ -287,7 +253,7 @@ class Engine {
     return out;
   }
   std(a) { let m = 0; for (const v of a) m += v; m /= a.length; let s = 0; for (const v of a) s += (v - m) * (v - m); return Math.sqrt(s / a.length); }
-  pos(R, G, B, fs) {
+  pos(R, G, B, fs) {            // Wang et al. 2017, Plane-Orthogonal-to-Skin (window statistics from prefix sums)
     const n = R.length, L = Math.floor(1.6 * fs), h = new Float64Array(n);
     if (n < L + 1) return h;
     const S = () => new Float64Array(n + 1), pr = S(), pg = S(), pb = S(), prr = S(), pgg = S(), pbb = S(), prg = S(), prb = S(), pgb = S();
@@ -300,37 +266,37 @@ class Engine {
       const e = s + L, mr = (pr[e] - pr[s]) / L, mg = (pg[e] - pg[s]) / L, mb = (pb[e] - pb[s]) / L;
       const Vr = ((prr[e] - prr[s]) / L - mr * mr) / (mr * mr), Vg = ((pgg[e] - pgg[s]) / L - mg * mg) / (mg * mg), Vb = ((pbb[e] - pbb[s]) / L - mb * mb) / (mb * mb);
       const Crg = ((prg[e] - prg[s]) / L - mr * mg) / (mr * mg), Crb = ((prb[e] - prb[s]) / L - mr * mb) / (mr * mb), Cgb = ((pgb[e] - pgb[s]) / L - mg * mb) / (mg * mb);
-      const v1 = Vg + Vb - 2 * Cgb, v2 = Vg + Vb + 4 * Vr + 2 * Cgb - 4 * Crg - 4 * Crb;
+      const v1 = Vg + Vb - 2 * Cgb, v2 = Vg + Vb + 4 * Vr + 2 * Cgb - 4 * Crg - 4 * Crb;     // variances of (g-b) and (g+b-2r), normalised
       const al = Math.sqrt(Math.max(v1, 0)) / (Math.sqrt(Math.max(v2, 0)) + 1e-9);
-      const cG = (1 + al) / mg, cB = (al - 1) / mb, cR = -2 * al / mr;
+      const cG = (1 + al) / mg, cB = (al - 1) / mb, cR = -2 * al / mr;                     // s1 + al*s2 as one linear combination (zero mean)
       for (let i = s; i < e; i++) h[i] += cR * R[i] + cG * G[i] + cB * B[i];
     }
     return h;
   }
-  spectrum(pulse, fs, prior) {
+  spectrum(pulse, fs, prior) {      // zero-padded FFT; prior = previous BPM (0 for none)
     const n = pulse.length, N = fs > 45 ? 8192 : 4096, re = new Float64Array(N), im = new Float64Array(N);
     for (let i = 0; i < n; i++) re[i] = pulse[i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)));
     fft(re, im);
     const df = fs / N, kLo = Math.ceil(0.7 / df), kHi = Math.floor(3.0 / df), pw = k => re[k] * re[k] + im[k] * im[k];
     const P = new Float64Array(kHi + 2); let pk = kLo, tot = 0;
     for (let k = kLo; k <= kHi; k++) { P[k] = pw(k); tot += P[k]; if (P[k] > P[pk]) pk = k; }
-    if (pk * df / 2 >= 0.9) {
+    if (pk * df / 2 >= 0.9) {       // a peak at half the frequency that is nearly as strong means the main peak is a harmonic
       const kh = Math.round(pk * df / 2 / df), w = Math.round(0.05 / df); let best = kh;
       for (let k = Math.max(kLo, kh - w); k <= Math.min(kHi, kh + w); k++) if (P[k] > P[best]) best = k;
       if (P[best] > 0.6 * P[pk]) pk = best;
     }
-    if (prior > 0) {
+    if (prior > 0) {                // stay near the previous estimate unless something else clearly dominates
       const kp = Math.round(prior / 60 / df), w = Math.round(12 / 60 / df); let best = -1;
       for (let k = Math.max(kLo, kp - w); k <= Math.min(kHi, kp + w); k++) if (best < 0 || P[k] > P[best]) best = k;
       if (best >= 0 && P[best] >= 0.5 * P[pk]) pk = best;
     }
     let f = pk * df;
-    const a = pw(pk - 1), b = pw(pk), c = pw(pk + 1), d = a - 2 * b + c;
+    const a = pw(pk - 1), b = pw(pk), c = pw(pk + 1), d = a - 2 * b + c;     // parabolic refinement
     if (d < 0) f += 0.5 * (a - c) / d * df;
     let sig = 0; for (let k = kLo; k <= kHi; k++) if (Math.abs(k * df - f) <= 0.1) sig += P[k];
-    return { bpm: f * 60, quality: tot > 0 ? Math.min(1, sig / tot) : 0 };
+    return { bpm: f * 60, quality: tot > 0 ? Math.min(1, sig / tot) : 0 };   // pure noise scores ~25%
   }
-  pulseData(minSec) {
+  pulseData(minSec) {     // POS on forehead and each cheek, band-passed, fused by each patch's own signal quality
     const T = this.t, ms = minSec === undefined ? this.min : minSec;
     if (T.length < 2 || T.at(-1) - T[0] < ms) return null;
     const fs = this.fs, n = Math.floor((T.at(-1) - T[0]) * fs);
@@ -339,17 +305,18 @@ class Engine {
       const p = bandpass(this.pos(r, g, b, fs), fs);
       return { p, sd: this.std(p) || 1, q: this.spectrum(p, fs, 0).quality };
     });
-    const ws = per.map(o => Math.max(o.q - 0.10, 0.02) ** 2), sw = ws[0] + ws[1] + ws[2], pulse = new Float64Array(n);
+    const ws = per.map(o => Math.max(o.q - 0.15, 0.02) ** 2), sw = ws[0] + ws[1] + ws[2], pulse = new Float64Array(n);
     per.forEach((o, k) => { const w = ws[k] / sw / o.sd; for (let i = 0; i < n; i++) pulse[i] += w * o.p[i]; });
     return { pulse, per: per.map(o => o.p), t0: T[0], fs, qs: per.map(o => o.q) };
   }
   estimate() {
     const pd = this.pulseData(); if (!pd) return null;
     const fs = pd.fs, pulse = pd.pulse, n = pulse.length, sp = this.spectrum(pulse, fs, this.sm);
-    if (sp.quality >= MIN_Q) {
+    if (sp.quality >= MIN_Q) {   // displayed value moves at most 3 BPM per second
       if (this.sm === 0) this.sm = sp.bpm;
       else { const d = sp.bpm - this.sm; if (Math.abs(d) < 30 || sp.quality > 0.6) this.sm += Math.max(-3, Math.min(3, d * 0.4)); }
     }
+    // spectral resolution of the window (60/T BPM) shrinks with signal-to-noise; plus a 2 BPM real-world floor
     const T = n / fs, snr = sp.quality / Math.max(1 - sp.quality, 0.02);
     const sigma = Math.sqrt(((60 / T) / Math.sqrt(Math.max(snr, 0.25))) ** 2 + 4);
     return { bpm: this.sm > 0 ? this.sm : sp.bpm, raw: sp.bpm, quality: sp.quality, sigma, pulse, per: pd.per, t0: pd.t0, fs };
@@ -357,9 +324,12 @@ class Engine {
 }
 
 /* ---------- Heartbeats and HRV ---------- */
-const HRV_WIN = 60, HRV_DEBIAS = true, RHO_MIN = 0.75, HRV_FLOOR_MAX = 45;
+const HRV_WIN = 60, HRV_DEBIAS = true, RHO_MIN = 0.75, HRV_FLOOR_MAX = 45;   // HRV is only shown when measured beat-timing noise is small enough   // HRV looks at the last 60 s of beats
 const parab = (p, i) => { const d = p[i - 1] - 2 * p[i] + p[i + 1]; return d < 0 ? 0.5 * (p[i - 1] - p[i + 1]) / d : 0; };
 
+// Heartbeats = peaks of the fused pulse. Candidates are found first, then every beat is aligned (sub-sample, by cross-correlation
+// with the average beat shape) in the fused pulse AND in each of the three patches' own pulses. The beat time is the mean of the
+// patches' times, and how much the patches disagree gives a measured timing-noise figure (used to correct HRV).
 function alignBeats(p, cand, fs, a, m) {
   const n = p.length, J = 2 * a + 1, T = new Float64Array(J); let used = 0;
   for (const i of cand) { if (i - a < 0 || i + a >= n) continue; for (let j = 0; j < J; j++) T[j] += p[i - a + j]; used++; }
@@ -392,17 +362,17 @@ function findBeats(pd, bpm) {
   if (!al[0]) { out.found = cand.map(i => ({ t: t0 + (i + parab(p, i)) / fs, a: Math.min(1, p[i] / mx) })); return out; }
   const found = []; let vsum = 0, vn = 0;
   cand.forEach((i, ci) => {
-    const f = al[0][ci]; if (!f || f.rho < RHO_MIN || f.amp < 0.3) return;
+    const f = al[0][ci]; if (!f || f.rho < RHO_MIN || f.amp < 0.3) return;      // too noisy to trust its timing
     const lags = []; for (let k = 1; k < al.length; k++) { const r = al[k] && al[k][ci]; if (r && r.rho >= 0.5) lags.push(r.lag); }
     let lag = f.lag;
     if (lags.length >= 2) {
       lag = lags.reduce((u, x) => u + x, 0) / lags.length;
       let v = 0; for (const x of lags) v += (x - lag) * (x - lag); v /= lags.length - 1;
-      vsum += v / lags.length; vn++;
+      vsum += v / lags.length; vn++;                                              // variance of the mean of the patches' times
     }
     found.push({ t: t0 + (i + lag) / fs, a: Math.min(1, Math.max(0.05, p[i] / mx)), rho: f.rho });
   });
-  if (vn >= 5) out.jit = Math.sqrt(vsum / vn) / fs;
+  if (vn >= 5) out.jit = Math.sqrt(vsum / vn) / fs;                              // seconds
   found.sort((x, y) => x.t - y.t);
   out.found = found.filter((b, k) => k === 0 || b.t - found[k - 1].t >= 0.5 * gap);
   return out;
@@ -410,12 +380,13 @@ function findBeats(pd, bpm) {
 function mergeBeats(arr, found, lo, hi, keepFrom, jit) {
   const keep = arr.filter(b => (b.t < lo || b.t > hi) && b.t >= keepFrom);
   const all = keep.concat(found.map(b => ({ t: b.t, a: b.a, jit }))).sort((x, y) => x.t - y.t), out = [];
-  for (const b of all) {
+  for (const b of all) {      // refined times can land a hair away from an older copy of the same beat
     const l = out[out.length - 1];
     if (l && b.t - l.t < 0.33) { if (b.a > l.a) out[out.length - 1] = b; } else out.push(b);
   }
   return out;
 }
+// Intervals between consecutive beats; implausible or outlying ones (Malik 20% rule vs. the local median) are marked invalid
 function cleanIbis(beats) {
   const iv = []; for (let i = 1; i < beats.length; i++) iv.push({ t: beats[i].t, d: beats[i].t - beats[i - 1].t, jit: beats[i].jit || 0 });
   iv.forEach((x, k) => {
@@ -431,8 +402,8 @@ function computeHRV(beats, tNow) {
   for (let k = 1; k < iv.length; k++) if (iv[k].ok && iv[k - 1].ok) { const d = iv[k].d - iv[k - 1].d; s2 += d * d; nd++; }
   if (nd < 8) return null;
   for (const x of good) jit2 += x.jit * x.jit; jit2 /= good.length;
-  const cover = good.length / (HRV_WIN / (good.reduce((u, x) => u + x.d, 0) / good.length));
-  const raw = Math.sqrt(s2 / nd) * 1000, floor = Math.sqrt(6 * jit2) * 1000;
+  const cover = good.length / (HRV_WIN / (good.reduce((u, x) => u + x.d, 0) / good.length));   // share of the window with usable beats
+  const raw = Math.sqrt(s2 / nd) * 1000, floor = Math.sqrt(6 * jit2) * 1000;       // successive differences carry 6x the timing variance
   const rmssd = HRV_DEBIAS ? Math.sqrt(Math.max(raw * raw - floor * floor, 0)) : raw;
   const mean = good.reduce((u, x) => u + x.d, 0) / good.length, sdnn = Math.sqrt(good.reduce((u, x) => u + (x.d - mean) ** 2, 0) / good.length) * 1000;
   return { rmssd, raw, floor, sdnn, n: good.length, frac: Math.min(1, cover), hr: 60 / mean };
@@ -463,11 +434,12 @@ const Snd = (() => {
     ok() { tone(523, 0.55, 'sine', 0.07); tone(659, 0.55, 'sine', 0.07, 0.13); tone(784, 0.8, 'sine', 0.07, 0.26); },
     beat() { tone(82, 0.15, 'sine', 0.13, 0, 46); tone(64, 0.13, 'sine', 0.07, 0.17, 40); },
     lock() { tone(660, 0.25, 'sine', 0.035); tone(990, 0.4, 'sine', 0.035, 0.1); },
+    warn() { tone(520, 0.12, 'sine', 0.035); tone(390, 0.2, 'sine', 0.035, 0.1); },
   };
 })();
 
-/* ---------- Unlock & Guide flow ---------- */
-const PASS = '5173';
+/* ---------- Unlock flow ---------- */
+const PASS = '5173';   // note: a static page can only gate, not truly protect
 const isUnlocked = () => { try { return /(?:^|; )unlocked=1/.test(document.cookie) || localStorage.getItem('unlocked') === '1'; } catch (e) { return false; } };
 const remember = () => {
   document.cookie = 'unlocked=1; max-age=315360000; path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
@@ -489,7 +461,7 @@ function press(k) {
   if (entry.length === 4) {
     busy = true;
     setTimeout(() => {
-      if (entry === PASS) { $('dots').className = 'ok'; Snd.ok(); remember(); setTimeout(showGuide, 750); }
+      if (entry === PASS) { $('dots').className = 'ok'; Snd.ok(); remember(); setTimeout(showApp, 750); }
       else { $('dots').className = 'bad'; Snd.bad(); setTimeout(() => { entry = ''; paintDots(); $('dots').className = ''; busy = false; }, 600); }
     }, 160);
   }
@@ -500,8 +472,7 @@ function press(k) {
   $('keys').appendChild(b);
 });
 $('unlock').onclick = openPad;
-$('startBtn').onclick = () => { Snd.key(5); showApp(); };
-$('byt').onclick = () => {
+$('byt').onclick = () => {      // clicking the credit forgets this device and returns to /unlock?
   try {
     document.cookie = 'unlocked=; max-age=0; path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
     localStorage.removeItem('unlocked');
@@ -509,37 +480,99 @@ $('byt').onclick = () => {
   Snd.back(); document.body.style.transition = 'opacity .45s'; document.body.style.opacity = '0';
   setTimeout(() => location.reload(), 480);
 };
-function showGuide() {
-  document.body.classList.remove('padon'); $('pad').classList.remove('on');
-  $('landing').classList.add('gone'); $('guide').classList.add('on');
-  loadDetector();
-}
 function showApp() {
-  document.body.classList.remove('padon'); $('pad').classList.remove('on');
-  $('landing').classList.add('gone'); $('guide').classList.remove('on'); $('app').classList.add('on');
-  layoutFace(); startCamera();
+  document.body.classList.remove('light', 'padon'); $('pad').classList.remove('on');
+  $('landing').classList.add('gone'); $('app').classList.add('on');
+  layoutFace(); $('guide').classList.add('on');       // show the how-to first; the camera starts when "start" is pressed
 }
+function beginMeasuring() {
+  if (!$('guide').classList.contains('on')) return;
+  $('guide').classList.remove('on'); Snd.open(); layoutFace(); startCamera();
+}
+$('start').onclick = beginMeasuring;
+
+/* ---------- Landing: cursor-driven skyline ---------- */
+// Two layers of procedural buildings (far = dim and lazy, near = bright and springy). Every building has a damped spring that pulls its
+// current height h toward a target height set by the cursor:
+//   gauss = exp( -dx^2 / (2 * (sig*W)^2) )       dx = horizontal distance from the cursor to the building's centre
+//   toCursor = H - cursorY                        pixels from the ground up to the cursor
+//   target = rest + gauss * reach * ( toCursor * (0.8 + 0.45*r) + 0.12*H*max )
+// So buildings right under the cursor grow until their roofs reach roughly the cursor's height (r and max give each one its own
+// skyline-like variation), neighbours fall off with the gaussian, and buildings far away just sit at their low resting height.
+// Move the cursor up and the whole bump rises; move it sideways and the bump travels. The text is black and sits above the canvas,
+// so it only shows where a bright building passes behind it: raise the skyline past the text and it is revealed.
+const sky = { c: $('sky'), x: null, W: 0, H: 0, dpr: 1, far: null, near: null, cx: 0, cy: 0, tx: 0, ty: 0, lastMove: -1e9, last: 0, on: false };
+function skyRng(seed) { return () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296; }
+function skyLayer(rand, W, wMin, wMax, hMin, hMax, gap, k, c, sig, reach) {
+  const list = []; let x = -rand() * 24;
+  while (x < W) {
+    const w = wMin + rand() * (wMax - wMin), tall = rand() < 0.14;
+    list.push({ x, w, max: tall ? 0.72 + rand() * 0.28 : hMin + rand() * (hMax - hMin), r: rand(), h: 0, v: 0, ph: rand() * 6.283, ant: tall && rand() < 0.6, seed: Math.floor(rand() * 97) });
+    x += w + rand() * gap;
+  }
+  return { list, k, c, sig, reach };
+}
+function skyBuild() {
+  const c = sky.c; sky.dpr = Math.min(2, window.devicePixelRatio || 1); sky.W = innerWidth; sky.H = innerHeight;
+  c.width = Math.round(sky.W * sky.dpr); c.height = Math.round(sky.H * sky.dpr); sky.x = c.getContext('2d');
+  const r = skyRng(20241); sky.cx = sky.tx = sky.W / 2; sky.cy = sky.ty = sky.H * 0.6;
+  sky.far = skyLayer(r, sky.W, 20, 44, 0.14, 0.46, 6, 55, 9.5, 0.17, 0.72);       // distant: dim, slower, wider reach, a bit lower
+  sky.near = skyLayer(r, sky.W, 24, 60, 0.18, 0.60, 5, 150, 14, 0.105, 1);         // close: bright, springy, tighter reach
+}
+function skyTarget(b, cx, cy, W, H, t, sigma, reach) {
+  const dx = b.x + b.w / 2 - cx, g = Math.exp(-(dx * dx) / (2 * sigma * sigma * W * W));
+  const toCursor = Math.max(0, H - cy);
+  const rest = H * (0.02 + 0.06 * b.max) + H * 0.008 * Math.sin(t * 1.3 + b.ph);   // low resting skyline that slowly breathes
+  return Math.min(H * 0.97, rest + g * reach * (toCursor * (0.8 + 0.45 * b.r) + H * 0.12 * b.max));
+}
+function skyStep(dt, now) {
+  const W = sky.W, H = sky.H, t = now / 1000;
+  let tx = sky.tx, ty = sky.ty;
+  if (now - sky.lastMove > 3000) { tx = W * (0.5 + 0.36 * Math.sin(t * 0.31)); ty = H * (0.5 + 0.2 * Math.sin(t * 0.23 + 1.2)); }   // idle: a virtual cursor drifts across
+  const a = 1 - Math.exp(-dt * 9); sky.cx += (tx - sky.cx) * a; sky.cy += (ty - sky.cy) * a;
+  for (const L of [sky.far, sky.near]) for (const b of L.list) {
+    const target = skyTarget(b, sky.cx, sky.cy, W, H, t, L.sig, L.reach);
+    b.v += (L.k * (target - b.h) - L.c * b.v) * dt; b.h += b.v * dt;                // damped spring
+    if (b.h < 0) { b.h = 0; b.v = 0; }
+  }
+}
+function skyDraw() {
+  const x = sky.x, W = sky.W, H = sky.H; x.setTransform(sky.dpr, 0, 0, sky.dpr, 0, 0); x.clearRect(0, 0, W, H);
+  x.fillStyle = 'rgba(236,236,230,.26)'; for (const b of sky.far.list) x.fillRect(b.x, H - b.h, b.w, b.h);
+  for (const b of sky.near.list) {
+    x.fillStyle = '#ecece6'; x.fillRect(b.x, H - b.h, b.w, b.h);
+    if (b.ant && b.h > H * 0.45) x.fillRect(b.x + b.w / 2 - 1, H - b.h - 20, 2, 20);
+    if (b.h > 40) {                                                                // windows, as faint dark cut-outs
+      x.fillStyle = 'rgba(0,0,0,.16)';
+      for (let r = 0, y = H - b.h + 10; y < H - 8; r++, y += 15) for (let k = 0, wx = b.x + 6; wx < b.x + b.w - 8; k++, wx += 10) if ((r * 7 + k * 13 + b.seed) % 5 < 3) x.fillRect(wx, y, 4, 6);
+    }
+  }
+  x.fillStyle = 'rgba(236,236,230,.18)'; x.fillRect(0, H - 1, W, 1);
+}
+function skyLoop(now) {
+  if ($('landing').classList.contains('gone')) { sky.on = false; return; }      // unlocked: stop for good
+  requestAnimationFrame(skyLoop);
+  if ($('pad').classList.contains('on')) { sky.last = now; return; }             // keypad is open: nothing to draw
+  const dt = Math.min(0.05, (now - (sky.last || now)) / 1000); sky.last = now;
+  skyStep(dt, now); skyDraw();
+}
+function skyStart() { skyBuild(); sky.on = true; requestAnimationFrame(skyLoop); }
+addEventListener('pointermove', e => { sky.tx = e.clientX; sky.ty = e.clientY; sky.lastMove = performance.now(); });
+addEventListener('resize', () => { if (sky.on) skyBuild(); });
 
 /* ---------- Measurement ---------- */
 const video = $('video'), work = document.createElement('canvas'), wctx = work.getContext('2d', { willReadFrequently: true });
 const engine = new Engine();
+const tiny = document.createElement('canvas'), tctx = (tiny.width = 16, tiny.height = 9, tiny.getContext('2d', { willReadFrequently: true }));   // for overall scene brightness
 let stream = null, track = null, running = false, gen = 0, detector = null, loadingDet = null;
-let lastDet = 0, detEvery = 500, target = null, cur = null, noFaceSince = null, lostReset = false, curRois = null;
+let lastDet = 0, detEvery = 500, target = null, cur = null, noFaceSince = null, lostReset = false;
 let frame = 0, lastTs = 0, lastUi = 0, lastPulse = 0, useCap = null, prevLum = null, flagUntil = 0, mv = [];
-let lowLight = false, warnState = '';
 let fsSet = false, dts = [], prevRawTs = 0, streak = 0;
+let frameLumS = -1, faceLumS = -1, dark = false, moveUntil = 0, jumpUntil = 0, warnKey = '', warnAt = -1e9;
 let clk = null, beatsT = [], tlPulse = null, tlMx = 1, flashAt = -1e9, wasOk = false, hrHidden = false, curOk = false, curBpm = 60;
 const beat = { on: false, at: 0, per: 800 }, rows = [], rawRows = [];
-const TL_WIN = 20;
-const renderT = nowMs => clk.ts + (nowMs - clk.wall) / 1000;
-
-function setWarning(txt) {
-  if (txt === warnState) return;
-  warnState = txt;
-  const w = $('warn');
-  if (!txt) w.classList.remove('on');
-  else { $('warnTxt').textContent = txt; w.classList.add('on'); }
-}
+const TL_WIN = 20;   // seconds shown on the beat timeline
+const renderT = nowMs => clk.ts + (nowMs - clk.wall) / 1000;   // stream time "now", for smooth scrolling
 
 async function loadDetector() {
   if (detector || loadingDet) return loadingDet;
@@ -556,7 +589,7 @@ async function loadDetector() {
   return loadingDet;
 }
 function updateBox(now, ts, W, H) {
-  if (detector && now - lastDet > detEvery) {
+  if (detector && now - lastDet > detEvery) {          // detection is heavy: ~2x/s, backs off if slow
     lastDet = now;
     try {
       const t0 = performance.now(), dets = detector.detectForVideo(work, t0).detections;
@@ -580,7 +613,7 @@ function updateBox(now, ts, W, H) {
     if (ts - noFaceSince > 1.5) cur = null;
   }
 }
-function faceRois(b, W, H) {
+function faceRois(b, W, H) {      // forehead + both cheeks
   const raw = [
     [b.x + b.w * 0.28, b.y + b.h * (b.det ? -0.13 : 0.02), b.w * 0.44, b.h * 0.17],
     [b.x + b.w * 0.11, b.y + b.h * 0.51, b.w * 0.26, b.h * 0.16],
@@ -592,19 +625,19 @@ function faceRois(b, W, H) {
     return [x, y, Math.max(2, Math.min(w, W - x)), Math.max(2, Math.min(h, H - y))];
   });
 }
-function sampleRoi(x, y, w, h) {
+function sampleRoi(x, y, w, h) {   // mean RGB of skin pixels (darker hair/brow pixels dropped)
   const d = wctx.getImageData(x, y, w, h).data, n = d.length / 4; let s = 0;
   for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
   const lim = 0.65 * s / n; let r = 0, g = 0, b = 0, c = 0;
   for (let i = 0; i < d.length; i += 4) {
-    if (d[i] > 249 || d[i + 1] > 249 || d[i + 2] > 249) continue;
-    if (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < lim) continue;
+    if (d[i] > 249 || d[i + 1] > 249 || d[i + 2] > 249) continue;                              // clipped highlights carry no pulse
+    if (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < lim) continue;                    // hair, brows, shadows
     r += d[i]; g += d[i + 1]; b += d[i + 2]; c++;
   }
   if (!c) return [s / n, s / n, s / n];
   return [r / c, g / c, b / c];
 }
-async function lockCamera(tr) {
+async function lockCamera(tr) {     // freeze auto exposure / white balance where the browser allows it
   try {
     const caps = tr.getCapabilities ? tr.getCapabilities() : {}, st = tr.getSettings ? tr.getSettings() : {}, adv = {};
     if (caps.exposureMode && caps.exposureMode.includes('manual')) {
@@ -627,22 +660,23 @@ async function startCamera() {
   const g = ++gen; setTimeout(() => { if (gen === g && track) lockCamera(track); }, 2500);
   loadDetector(); running = true; schedule(g);
 }
+// one sample per real camera frame, stamped with the frame's own capture time
 function schedule(g) {
   if (!running || g !== gen) return;
   if (video.requestVideoFrameCallback) video.requestVideoFrameCallback((now, meta) => { schedule(g); if (g === gen) onFrame(now, meta); });
   else requestAnimationFrame(now => { schedule(g); if (g === gen) onFrame(now, {}); });
 }
 
-function setHidden(v) {
+function setHidden(v) {      // hide the number (face gone, or an implausible rate)
   if (v === hrHidden) return; hrHidden = v; $('hr').classList.toggle('hide', v);
   if (v) { $('qbar').style.width = '0px'; beat.on = false; wasOk = false; curOk = false; }
 }
-function resetSignal() { engine.reset(); prevLum = null; tlPulse = null; beat.on = false; wasOk = false; curOk = false; streak = 0; }
+function resetSignal() { engine.reset(); prevLum = null; tlPulse = null; beat.on = false; wasOk = false; curOk = false; streak = 0; }   // old beats are kept: HRV simply sees a gap
 
 function onFrame(now, meta) {
   if (useCap === null) useCap = typeof meta.captureTime === 'number';
   const ts = (useCap ? meta.captureTime : now) / 1000;
-  if (!fsSet && prevRawTs) {
+  if (!fsSet && prevRawTs) {          // measure the camera's real frame rate once: 60 fps cameras get a 60 Hz pipeline
     dts.push(ts - prevRawTs);
     if (dts.length >= 45) { dts.sort((a, b) => a - b); const md = dts[dts.length >> 1]; engine.fs = md > 0 && 1 / md > 48 ? 60 : 30; engine.reset(); fsSet = true; }
   }
@@ -652,47 +686,46 @@ function onFrame(now, meta) {
   const W = work.width, H = work.height;
   wctx.drawImage(video, 0, 0, W, H);
   updateBox(now, ts, W, H);
-  if (noFaceSince !== null && ts - noFaceSince >= 3) setHidden(true);
+  if (noFaceSince !== null && ts - noFaceSince >= 3) setHidden(true);     // no face for 3 s: hide the heart rate
   if (!cur) {
-    curRois = null;
     if (!lostReset) { resetSignal(); lostReset = true; $('hr').classList.add('low'); }
-    setWarning('position face ~40 cm from camera');
-    return;
+    setWarns([]); drawPreview(null); return;
   }
   lostReset = false;
   const rois = faceRois(cur, W, H), ms = rois.map(r => sampleRoi(...r));
-  curRois = rois;
   const m = [0, 1, 2].map(i => (ms[0][i] + ms[1][i] + ms[2][i]) / 3);
   mv.push({ t: ts, x: cur.x + cur.w / 2, y: cur.y + cur.h / 2 }); while (mv[0].t < ts - 1) mv.shift();
-  const d = Math.hypot(mv.at(-1).x - mv[0].x, mv.at(-1).y - mv[0].y) / cur.w;
-  if (d > 0.12) flagUntil = ts + 1.5;
+  const d = Math.hypot(mv.at(-1).x - mv[0].x, mv.at(-1).y - mv[0].y) / cur.w;   // how far the face travelled in 1 s
+  if (d > 0.12) { flagUntil = ts + 1.5; moveUntil = ts + 1.5; }
   if (d > 0.35) resetSignal();
-  const lum = 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2];
-  lowLight = lum < 55;
-  if (prevLum !== null) { const j = Math.abs(lum - prevLum) / prevLum; if (j > 0.10) { resetSignal(); flagUntil = ts + 2; } else if (j > 0.04) flagUntil = ts + 2; }
+  const lum = 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2];   // a heartbeat moves brightness ~1%; big jumps are artifacts
+  if (prevLum !== null) { const j = Math.abs(lum - prevLum) / prevLum; if (j > 0.10) { resetSignal(); flagUntil = ts + 2; jumpUntil = ts + 2; } else if (j > 0.04) { flagUntil = ts + 2; jumpUntil = ts + 2; } }
   prevLum = lum; engine.add(ts, ms);
-
-  if (ts < flagUntil) setWarning('hold still — too much movement');
-  else if (lowLight) setWarning('low light — add front lighting');
-  else setWarning('');
-
+  if (frame % 6 === 0) {                     // light check: overall scene brightness and face brightness (smoothed, with hysteresis)
+    tctx.drawImage(work, 0, 0, 16, 9); const td = tctx.getImageData(0, 0, 16, 9).data; let sum = 0;
+    for (let i = 0; i < td.length; i += 4) sum += 0.299 * td[i] + 0.587 * td[i + 1] + 0.114 * td[i + 2];
+    frameLumS = frameLumS < 0 ? sum / 144 : frameLumS * 0.8 + sum / 144 * 0.2; faceLumS = faceLumS < 0 ? lum : faceLumS * 0.8 + lum * 0.2;
+    if (!dark && (frameLumS < 70 || faceLumS < 40)) dark = true; else if (dark && frameLumS > 82 && faceLumS > 48) dark = false;
+  }
+  updateWarns(ts);
   rawRows.push({ t: ts.toFixed(3), r: m[0].toFixed(2), g: m[1].toFixed(2), b: m[2].toFixed(2) });
   if (rawRows.length > 30000) rawRows.splice(0, 3000);
+  drawPreview(rois);
 
-  if (ts - lastUi >= 1) {
+  if (ts - lastUi >= 1) {                    // full estimate once a second
     lastUi = ts; lastPulse = ts;
     const res = engine.estimate(); if (res) handleEstimate(res, ts);
-  } else if (curOk && ts - lastPulse >= 0.25) {
+  } else if (curOk && ts - lastPulse >= 0.25) {   // beat timeline refreshes 4x a second
     lastPulse = ts; const pd = engine.pulseData();
     if (pd) { updateBeats(pd, curBpm, true); planFromBeats(curBpm); }
   }
 }
 function handleEstimate(res, ts) {
-  const moving = ts < flagUntil, bpm = Math.round(res.bpm), plausible = bpm >= 50;
-  streak = res.quality >= MIN_Q ? streak + 1 : 0;
+  const moving = ts < flagUntil, bpm = Math.round(res.bpm), plausible = bpm >= 50;   // 40s are hidden
+  streak = res.quality >= MIN_Q ? streak + 1 : 0;                                    // a good signal must hold for 2 readings in a row
   const pdx = { pulse: res.pulse, per: res.per, t0: res.t0, fs: res.fs }, fb = findBeats(pdx, res.bpm);
-  const cover = fb.found.length / (((fb.hi - fb.lo) * res.bpm / 60) || 1);
-  const ok = streak >= 2 && cover >= 0.5 && !moving && !lowLight && plausible;
+  const cover = fb.found.length / (((fb.hi - fb.lo) * res.bpm / 60) || 1);          // share of expected beats that were actually found
+  const ok = streak >= 2 && cover >= 0.5 && !moving && plausible;
   setHidden(!plausible);
   $('hr').classList.toggle('low', !ok);
   $('bpm').textContent = bpm; $('pm').textContent = '±' + Math.max(2, Math.round(res.sigma));
@@ -702,7 +735,7 @@ function handleEstimate(res, ts) {
   const tEnd = res.t0 + (res.pulse.length - 1) / res.fs;
   updateBeats(pdx, res.bpm, ok, fb);
   if (ok) planFromBeats(res.bpm); else beat.on = false;
-  const h = computeHRV(beatsT, tEnd), hrvOk = !!h && ok && h.floor <= HRV_FLOOR_MAX && h.frac >= 0.6 && h.n >= 25;
+  const h = computeHRV(beatsT, tEnd), hrvOk = !!h && ok && h.floor <= HRV_FLOOR_MAX && h.frac >= 0.6 && h.n >= 25;   // only trusted when beat timing is clean
   $('rmssd').textContent = h ? Math.round(h.rmssd) : '--'; $('hrv').classList.toggle('low', !hrvOk);
   rows.push({ time: new Date().toISOString(), bpm, raw_bpm: res.raw.toFixed(1), signal_pct: Math.round(res.quality * 100), plus_minus: res.sigma.toFixed(1),
     greyed: ok ? 0 : 1, hidden: hrHidden ? 1 : 0, fps: res.fs, rmssd_ms: h ? h.rmssd.toFixed(1) : '', rmssd_raw_ms: h ? h.raw.toFixed(1) : '', timing_noise_ms: h ? (h.floor / Math.sqrt(6)).toFixed(1) : '',
@@ -712,11 +745,11 @@ function updateBeats(pd, bpm, ok, fb) {
   tlPulse = pd;
   let mx = 0; for (const v of pd.pulse) mx = Math.max(mx, Math.abs(v));
   tlMx = tlMx === 1 ? (mx || 1) : tlMx * 0.6 + (mx || tlMx) * 0.4;
-  if (!ok) return;
+  if (!ok) return;                                   // never mark beats on a noisy signal
   const f = fb || findBeats(pd, bpm), tEnd = pd.t0 + (pd.pulse.length - 1) / pd.fs;
   beatsT = mergeBeats(beatsT, f.found, f.lo, f.hi, tEnd - HRV_WIN - 20, f.jit);
 }
-function planFromBeats(bpm) {
+function planFromBeats(bpm) {    // time the number pulse and sound to the next beat after the last detected one
   if (!beatsT.length || !clk) { beat.on = false; return; }
   const per = 60 / bpm, tr = renderT(performance.now()), last = beatsT[beatsT.length - 1].t;
   const k = Math.max(1, Math.ceil((tr + 0.15 - last) / per));
@@ -724,68 +757,42 @@ function planFromBeats(bpm) {
 }
 
 /* ---------- Drawing ---------- */
-function drawPreview(rois, nowMs) {
+function drawPreview(rois) {
   const c = $('face'), x = c.getContext('2d'), CW = c.width, CH = c.height, vw = video.videoWidth, vh = video.videoHeight;
-  if (!vw || !vh) return;
-  x.save(); x.fillStyle = '#0a0a0a'; x.fillRect(0, 0, CW, CH); x.translate(CW, 0); x.scale(-1, 1);
-  if (!rois || !cur) {
+  x.save(); x.fillStyle = '#0a0a0a'; x.fillRect(0, 0, CW, CH); x.translate(CW, 0); x.scale(-1, 1);   // mirrored, like a mirror
+  if (!rois) {
     const s = Math.max(CW / vw, CH / vh); x.globalAlpha = 0.28;
     x.drawImage(video, (vw - CW / s) / 2, (vh - CH / s) / 2, CW / s, CH / s, 0, 0, CW, CH); x.restore(); return;
   }
   const k = vw / work.width, cw = cur.w * 2.1, ch = cw * CH / CW, sx = cur.x + cur.w / 2 - cw / 2, sy = cur.y + cur.h * 0.42 - ch / 2;
   x.drawImage(video, sx * k, sy * k, cw * k, ch * k, 0, 0, CW, CH);
-
-  const flash = Math.max(0, 1 - (nowMs - flashAt) / 480);
-  let wave = 0;
-  if (clk && tlPulse) {
-    const { pulse: p, t0, fs } = tlPulse, idx = Math.min(p.length - 1, Math.max(0, Math.round((renderT(nowMs) - t0) * fs)));
-    wave = Math.max(0, Math.min(1, p[idx] / (tlMx || 1)));
-  }
-  const redAmt = curOk ? Math.min(1, flash * 0.75 + wave * 0.45) : wave * 0.18;
-
-  if (redAmt > 0.01) {
-    const fx = (cur.x + cur.w / 2 - sx) / cw * CW, fy = (cur.y + cur.h * 0.42 - sy) / ch * CH, fr = (cur.w / cw * CW) * 0.72;
-    const grd = x.createRadialGradient(fx, fy, fr * 0.08, fx, fy, fr);
-    grd.addColorStop(0, `rgba(255,77,94,${(redAmt * 0.44).toFixed(3)})`);
-    grd.addColorStop(0.65, `rgba(255,77,94,${(redAmt * 0.18).toFixed(3)})`);
-    grd.addColorStop(1, 'rgba(255,77,94,0)');
-    x.fillStyle = grd;
-    x.fillRect(0, 0, CW, CH);
-  }
-
-  for (const [rx, ry, rw, rh] of rois) {
-    const px = (rx - sx) / cw * CW, py = (ry - sy) / ch * CH, pw = rw / cw * CW, ph = rh / ch * CH;
-    if (redAmt > 0.01) {
-      x.fillStyle = `rgba(255,77,94,${(0.08 + redAmt * 0.48).toFixed(3)})`;
-      x.fillRect(px, py, pw, ph);
-    }
-    x.strokeStyle = redAmt > 0.05
-      ? `rgba(255,${Math.round(255 - 178 * redAmt)},${Math.round(255 - 161 * redAmt)},${(0.4 + redAmt * 0.55).toFixed(3)})`
-      : 'rgba(255,255,255,.38)';
-    x.lineWidth = (1.4 + redAmt * 1.4);
-    x.strokeRect(px, py, pw, ph);
-  }
+  const fl = flashLevel(performance.now());
+  x.strokeStyle = fl > 0.03 ? `rgba(255,77,94,${(0.45 + 0.5 * fl).toFixed(2)})` : 'rgba(255,255,255,.4)'; x.lineWidth = 1.5;
+  for (const [rx, ry, rw, rh] of rois) x.strokeRect((rx - sx) / cw * CW, (ry - sy) / ch * CH, rw / cw * CW, rh / ch * CH);
   x.restore();
 }
-function layoutFace() {
+function layoutFace() {   // the preview is exactly as tall as its row, 6:7
   const f = $('face'), hh = f.parentElement.clientHeight;
-  if (hh > 0) { f.style.aspectRatio = 'auto'; f.style.height = hh + 'px'; f.style.width = Math.floor(hh * 6 / 7) + 'px'; }
+  if (hh > 0) {
+    f.style.aspectRatio = 'auto'; f.style.height = hh + 'px'; f.style.width = Math.floor(hh * 6 / 7) + 'px';
+    const fl = $('flash'); fl.style.width = f.style.width; fl.style.height = f.style.height;
+  }
 }
 addEventListener('resize', layoutFace);
 const dpr = Math.min(2, window.devicePixelRatio || 1);
 function fit(c) { const w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } }
-
+// Timeline of detected heartbeats: the pulse trace scrolls right-to-left, each beat gets a marker and a tick, "now" is the right edge
 function drawTimeline(nowMs) {
   const c = $('tl'); fit(c); const x = c.getContext('2d'), w = c.width, h = c.height; x.clearRect(0, 0, w, h);
-  const xr = w - 36 * dpr, yw = h * 0.44, A = h * 0.28, lane = h * 0.86;
+  const xr = w - 36 * dpr, yw = h * 0.42, A = h * 0.26, lane = h * 0.86;
   const tr = clk ? renderT(nowMs) : 0, X = t => xr - (tr - t) / TL_WIN * xr;
   x.lineWidth = dpr; x.strokeStyle = 'rgba(255,255,255,.05)';
   if (clk) for (let t = Math.floor(tr / 5) * 5; t > tr - TL_WIN; t -= 5) { x.beginPath(); x.moveTo(X(t), 0); x.lineTo(X(t), h); x.stroke(); }
-  x.strokeStyle = 'rgba(255,255,255,.12)'; x.beginPath(); x.moveTo(0, yw); x.lineTo(xr, yw); x.stroke();
-  x.beginPath(); x.moveTo(0, lane); x.lineTo(xr, lane); x.stroke();
+  x.strokeStyle = 'rgba(255,255,255,.12)'; x.beginPath(); x.moveTo(0, yw); x.lineTo(xr, yw); x.stroke();           // baseline
+  x.beginPath(); x.moveTo(0, lane); x.lineTo(xr, lane); x.stroke();                                               // beat lane
   const flash = Math.max(0, 1 - (nowMs - flashAt) / 700);
-  x.strokeStyle = `rgba(255,255,255,${(0.14 + 0.5 * flash).toFixed(3)})`; x.beginPath(); x.moveTo(xr, 0); x.lineTo(xr, h); x.stroke();
-  if (clk && tlPulse) {
+  x.strokeStyle = `rgba(255,255,255,${(0.14 + 0.5 * flash).toFixed(3)})`; x.beginPath(); x.moveTo(xr, 0); x.lineTo(xr, h); x.stroke();   // now
+  if (clk && tlPulse) {                                      // pulse trace
     const { pulse: p, t0, fs } = tlPulse, g = x.createLinearGradient(0, 0, xr, 0);
     const a = curOk ? 0.75 : 0.22;
     g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.3, `rgba(255,255,255,${(a * 0.5).toFixed(2)})`); g.addColorStop(1, `rgba(255,255,255,${a})`);
@@ -797,39 +804,46 @@ function drawTimeline(nowMs) {
     x.stroke();
   }
   x.lineCap = 'round';
-  for (let i = 0; i < beatsT.length; i++) {
+  for (let i = 0; i < beatsT.length; i++) {                  // detected beats
     const b = beatsT[i], bx = X(b.t); if (bx < 0 || bx > xr + 2) continue;
     const al = Math.max(0.15, Math.pow(1 - (tr - b.t) / TL_WIN, 0.8)), by = yw - Math.min(1, b.a) * A;
     x.strokeStyle = `rgba(255,77,94,${(al * 0.3).toFixed(3)})`; x.lineWidth = dpr; x.beginPath(); x.moveTo(bx, by); x.lineTo(bx, lane); x.stroke();
     x.strokeStyle = `rgba(255,77,94,${al.toFixed(3)})`; x.lineWidth = 2.6 * dpr; x.beginPath(); x.moveTo(bx, lane - 9 * dpr); x.lineTo(bx, lane + 9 * dpr); x.stroke();
     x.fillStyle = `rgba(255,77,94,${al.toFixed(3)})`; x.beginPath(); x.arc(bx, by, 3.4 * dpr, 0, 6.2832); x.fill();
-    if (i > 0) {
+    if (i > 0) {                                             // gap to the previous beat
       const px = X(beatsT[i - 1].t); x.strokeStyle = `rgba(255,255,255,${(al * 0.18).toFixed(3)})`; x.lineWidth = dpr;
       x.beginPath(); x.moveTo(px + 3 * dpr, lane); x.lineTo(bx - 3 * dpr, lane); x.stroke();
     }
   }
-  if (flash > 0) {
+  if (flash > 0) {                                           // ring on the now-line at each beat
     x.strokeStyle = `rgba(255,77,94,${(flash * flash * 0.7).toFixed(3)})`; x.lineWidth = 1.6 * dpr;
     x.beginPath(); x.arc(xr, yw, (5 + 26 * (1 - flash)) * dpr, 0, 6.2832); x.stroke();
   }
 }
+function flashLevel(nowMs) { const f = Math.max(0, 1 - (nowMs - flashAt) / 600); return f * f; }     // 1 at the beat, fades to 0
+function flashFace(nowMs) { $('flash').style.opacity = cur && curOk ? (0.55 * flashLevel(nowMs)).toFixed(3) : '0'; }   // face flashes red on each beat, like the red plot marks
 
+function updateWarns(ts) {
+  const w = [];
+  if (ts < moveUntil) w.push('too much movement'); else if (ts < jumpUntil) w.push('lighting is changing');
+  if (dark) w.push('not enough light');
+  setWarns(w);
+}
+function setWarns(w) {
+  const key = w.join('|'); if (key === warnKey) return;
+  const added = w.some(t => !warnKey.split('|').includes(t)); warnKey = key;
+  $('warn').innerHTML = w.map(t => `<div class="pill">${t}</div>`).join('');
+  if (added && performance.now() - warnAt > 6000) { warnAt = performance.now(); Snd.warn(); }
+}
 function loop(nowMs) {
   requestAnimationFrame(loop);
-  if (!$('landing').classList.contains('gone')) {
-    cMx += (tMx - cMx) * 0.12;
-    cMy += (tMy - cMy) * 0.12;
-    unlockEl.style.setProperty('--mx', cMx.toFixed(1) + '%');
-    unlockEl.style.setProperty('--my', cMy.toFixed(1) + '%');
-  }
   if (!$('app').classList.contains('on')) return;
   if (beat.on && nowMs >= beat.at) {
     flashAt = nowMs; Snd.beat();
     const el = $('bpm'); el.classList.remove('beat'); void el.offsetWidth; el.classList.add('beat');
     beat.at += beat.per; if (nowMs - beat.at > beat.per * 2) beat.at = nowMs + beat.per;
   }
-  drawPreview(curRois, nowMs);
-  drawTimeline(nowMs);
+  drawTimeline(nowMs); flashFace(nowMs);
 }
 
 /* ---------- Keys: M mute, E readings CSV, R raw CSV, I beat intervals CSV ---------- */
@@ -840,12 +854,9 @@ function download(name, list) {
   a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 addEventListener('keydown', e => {
+  if ($('guide').classList.contains('on')) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); beginMeasuring(); } return; }
   if ($('pad').classList.contains('on')) {
     if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') press('⌫'); else if (e.key === 'Escape') closePad();
-    return;
-  }
-  if ($('guide').classList.contains('on')) {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('startBtn').click(); }
     return;
   }
   if (!$('app').classList.contains('on')) return;
@@ -855,7 +866,7 @@ addEventListener('keydown', e => {
 });
 
 requestAnimationFrame(loop);
-if (isUnlocked()) showGuide();
+if (isUnlocked()) showApp(); else skyStart();
 })();
 </script>
 </body>
